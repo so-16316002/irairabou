@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>イライラ棒 - Ultra Precision</title>
+    <style>
+        body {
+            background-color: #0a0a12;
+            color: #ffffff;
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+        canvas {
+            border: 2px solid #333;
+            background-color: #0a0a12;
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+            cursor: crosshair;
+        }
+        #info {
+            margin-bottom: 10px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<div id="info">DEATHS: <span id="death-count">0</span></div>
+<canvas id="gameCanvas" width="800" height="600"></canvas>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const deathDisplay = document.getElementById('death-count');
+
+// --- ゲーム設定 ---
+const EASING = 0.15; // 慣性（小さいほどマウス追従が遅れてムズい）
+const PLAYER_RADIUS = 5;
+
+let mouseX = 70, mouseY = 70;
+let playerX = 70, playerY = 70;
+let deathCount = 0;
+
+// 状態: 'START', 'PLAYING', 'GAMEOVER', 'CLEAR'
+let gameState = 'START';
+
+// コース設計 (壁)
+const walls = [
+    // 外壁
+    {x: 0, y: 0, w: 800, h: 20},
+    {x: 0, y: 580, w: 800, h: 20},
+    {x: 0, y: 0, w: 20, h: 600},
+    {x: 780, y: 0, w: 20, h: 600},
+    // 内壁
+    {x: 20, y: 150, w: 600, h: 20},
+    {x: 150, y: 100, w: 20, h: 50},
+    {x: 150, y: 250, w: 650, h: 20},
+    {x: 20, y: 350, w: 300, h: 20},
+    {x: 400, y: 350, w: 400, h: 20},
+    {x: 300, y: 350, w: 20, h: 150},
+    {x: 400, y: 250, w: 20, h: 150},
+    {x: 20, y: 500, w: 500, h: 20},
+    {x: 600, y: 450, w: 20, h: 150},
+    {x: 600, y: 450, w: 100, h: 20}
+];
+
+const startZone = {x: 40, y: 40, w: 60, h: 60};
+const goalZone = {x: 710, y: 510, w: 60, h: 60};
+
+// 動く障害物
+const movingObstacles = [
+    {x: 650, y: 270, w: 20, h: 80, vy: 3, minY: 270, maxY: 430},
+    {x: 500, y: 370, w: 80, h: 20, vx: -4, minX: 100, maxX: 500}
+];
+
+// マウス座標の取得
+canvas.addEventListener('mousemove', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    mouseX = e.clientX - rect.left;
+    mouseY = e.clientY - rect.top;
+});
+
+// クリック判定
+canvas.addEventListener('mousedown', () => {
+    if (gameState === 'START') {
+        if (mouseX >= startZone.x && mouseX <= startZone.x + startZone.w &&
+            mouseY >= startZone.y && mouseY <= startZone.y + startZone.h) {
+            gameState = 'PLAYING';
+            playerX = startZone.x + startZone.w / 2;
+            playerY = startZone.y + startZone.h / 2;
+        }
+    } else if (gameState === 'GAMEOVER' || gameState === 'CLEAR') {
+        gameState = 'START';
+        playerX = startZone.x + startZone.w / 2;
+        playerY = startZone.y + startZone.h / 2;
+    }
+});
+
+// 矩形と円の当たリ判定
+function checkCollision(circleX, circleY, radius, rect) {
+    let closestX = Math.max(rect.x, Math.min(circleX, rect.x + rect.w));
+    let closestY = Math.max(rect.y, Math.min(circleY, rect.y + rect.h));
+    let distanceX = circleX - closestX;
+    let distanceY = circleY - closestY;
+    return (distanceX * distanceX + distanceY * distanceY) < (radius * radius);
+}
+
+// ゲームループ
+function update() {
+    // 1. ロジック更新
+    if (gameState === 'PLAYING') {
+        // 慣性移動
+        playerX += (mouseX - playerX) * EASING;
+        playerY += (mouseY - playerY) * EASING;
+
+        // 動く障害物の更新
+        movingObstacles.forEach(obs => {
+            if (obs.vy) {
+                obs.y += obs.vy;
+                if (obs.y < obs.minY || obs.y + obs.h > obs.maxY) obs.vy *= -1;
+            }
+            if (obs.vx) {
+                obs.x += obs.vx;
+                if (obs.x < obs.minX || obs.x + obs.w > obs.maxX) obs.vx *= -1;
+            }
+
+            if (checkCollision(playerX, playerY, PLAYER_RADIUS, obs)) {
+                gameState = 'GAMEOVER';
+                deathCount++;
+            }
+        });
+
+        // 壁との衝突判定
+        for (let wall of walls) {
+            if (checkCollision(playerX, playerY, PLAYER_RADIUS, wall)) {
+                gameState = 'GAMEOVER';
+                deathCount++;
+                break;
+            }
+        }
+
+        // ゴール判定
+        if (checkCollision(playerX, playerY, PLAYER_RADIUS, goalZone)) {
+            gameState = 'CLEAR';
+        }
+    }
+
+    deathDisplay.textContent = deathCount;
+
+    // 2. 描画
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // スタート＆ゴール
+    ctx.strokeStyle = '#2ecc71';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(startZone.x, startZone.y, startZone.w, startZone.h);
+
+    ctx.fillStyle = '#3498db';
+    ctx.fillRect(goalZone.x, goalZone.y, goalZone.w, goalZone.h);
+
+    // 壁
+    ctx.fillStyle = '#e74c3c';
+    walls.forEach(wall => ctx.fillRect(wall.x, wall.y, wall.w, wall.h));
+
+    // 動く障害物
+    movingObstacles.forEach(obs => ctx.fillRect(obs.x, obs.y, obs.w, obs.h));
+
+    // プレイヤー
+    ctx.fillStyle = '#2ecc71';
+    ctx.beginPath();
+    ctx.arc(playerX, playerY, PLAYER_RADIUS, 0, Math.PI * 2);
+    ctx.fill();
+
+    // オーバーレイ・テキスト描画
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '24px sans-serif';
+    ctx.textAlign = 'center';
+
+    if (gameState === 'START') {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText('緑の枠内をクリックしてスタート', canvas.width / 2, canvas.height / 2);
+    } else if (gameState === 'GAMEOVER') {
+        ctx.fillStyle = 'rgba(150, 0, 0, 0.6)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText('GAME OVER - クリックで再挑戦', canvas.width / 2, canvas.height / 2);
+    } else if (gameState === 'CLEAR') {
+        ctx.fillStyle = 'rgba(0, 150, 0, 0.6)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText('CLEAR! - クリックで再挑戦', canvas.width / 2, canvas.height / 2);
+    }
+
+    requestAnimationFrame(update);
+}
+
+// ゲーム開始
+update();
+</script>
+
+</body>
+</html>
