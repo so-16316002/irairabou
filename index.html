@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>カメラ追跡型・1本道イライラ棒</title>
+    <title>近距離カメラ・キーボード操作型イライラ棒</title>
     <style>
         body {
             background-color: #05050a;
@@ -20,7 +20,6 @@
         canvas {
             border: 2px solid #ff0055;
             background-color: #050508;
-            cursor: crosshair;
         }
         #info {
             margin-bottom: 10px;
@@ -32,7 +31,7 @@
 </head>
 <body>
 
-<div id="info">DEATHS: <span id="death-count">0</span></div>
+<div id="info">DEATHS: <span id="death-count">0</span> | [矢印キー] 移動</div>
 <canvas id="gameCanvas" width="800" height="600"></canvas>
 
 <script>
@@ -40,110 +39,124 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const deathDisplay = document.getElementById('death-count');
 
-// --- パラメータ設定 ---
-const EASING = 0.045;
-const PLAYER_RADIUS = 3;
+// --- 設定パラメータ ---
+const ZOOM = 2.2;           // カメラのズーム倍率（数値を大きくすると近く表示）
+const PLAYER_SPEED = 2.8;   // プレイヤーの移動速度
+const PLAYER_RADIUS = 3;    // 自機サイズ
 
-let mouseWorldX = 40, mouseWorldY = 40;
 let playerX = 40, playerY = 40;
-let cameraX = 0, cameraY = 0;
 let deathCount = 0;
-
 let gameState = 'START';
 
-// スタート・ゴール位置（1本道の起点と終点）
-const startZone = {x: 10, y: 10, w: 60, h: 60};
-const goalZone = {x: 200, y: 1250, w: 60, h: 60};
+// キー入力状態
+const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
 
-// 一本道の外壁データ（分岐なし）
-const walls = [
-    // --- スタートエリア周り ---
-    {x: 0, y: 0, w: 80, h: 10},
-    {x: 0, y: 0, w: 10, h: 80},
-    {x: 0, y: 70, w: 10, h: 10},
-
-    // --- エリア1: 上部のイラスト再現（左右に進むコース） ---
-    {x: 70, y: 70, w: 730, h: 10}, // 下壁
-    {x: 70, y: 0, w: 740, h: 10},  // 上壁
-
-    // 手書き再現の突起（上から）
-    {x: 150, y: 10, w: 5, h: 40}, {x: 270, y: 10, w: 5, h: 45},
-    {x: 390, y: 10, w: 5, h: 40}, {x: 510, y: 10, w: 5, h: 45},
-    {x: 630, y: 10, w: 5, h: 40}, {x: 750, y: 10, w: 5, h: 45},
-
-    // 手書き再現の突起（下から）
-    {x: 210, y: 30, w: 5, h: 40}, {x: 330, y: 25, w: 5, h: 45},
-    {x: 450, y: 30, w: 5, h: 40}, {x: 570, y: 25, w: 5, h: 45},
-    {x: 690, y: 30, w: 5, h: 40},
-
-    // --- エリア2: 右折して垂直落下（下に進むコース） ---
-    {x: 800, y: 0, w: 10, h: 400},  // 右外壁
-    {x: 730, y: 70, w: 10, h: 260}, // 左内壁
-
-    // --- エリア3: 下部のクランク1本道（左に進むコース） ---
-    {x: 100, y: 320, w: 640, h: 10}, // 上壁
-    {x: 170, y: 390, w: 640, h: 10}, // 下壁
-
-    // --- エリア4: 左折して垂直落下2（下に進むコース） ---
-    {x: 100, y: 320, w: 10, h: 300}, // 左外壁
-    {x: 170, y: 390, w: 10, h: 170}, // 右内壁
-
-    // --- エリア5: 右に進むロングストレート ---
-    {x: 100, y: 610, w: 700, h: 10}, // 下壁
-    {x: 170, y: 550, w: 560, h: 10}, // 上壁
-
-    // --- エリア6: 下に進むコース2 ---
-    {x: 790, y: 610, w: 10, h: 300}, // 右外壁
-    {x: 720, y: 550, w: 10, h: 300}, // 左内壁
-
-    // --- エリア7: 左に進むラストスパート ---
-    {x: 200, y: 900, w: 600, h: 10}, // 下壁
-    {x: 260, y: 840, w: 470, h: 10}, // 上壁
-
-    // --- エリア8: ゴール直前下降 ---
-    {x: 200, y: 900, w: 10, h: 400}, // 左壁
-    {x: 260, y: 840, w: 10, h: 400}, // 右壁
-    {x: 200, y: 1300, w: 70, h: 10}  // 底壁
-];
-
-// 1本道の上に設置された移動障害物
-const movingObstacles = [
-    {x: 735, y: 120, w: 60, h: 8, vx: -2.5, vy: 0, minX: 735, maxX: 795},
-    {x: 735, y: 220, w: 60, h: 8, vx: 2.5, vy: 0, minX: 735, maxX: 795},
-    {x: 300, y: 325, w: 8, h: 60, vx: 0, vy: 2, minY: 325, maxY: 385},
-    {x: 500, y: 325, w: 8, h: 60, vx: 0, vy: -2, minY: 325, maxY: 385},
-    {x: 200, y: 560, w: 10, h: 45, vx: 4, vy: 0, minX: 180, maxX: 710},
-    {x: 600, y: 560, w: 10, h: 45, vx: -4, vy: 0, minX: 180, maxX: 710},
-    {x: 725, y: 700, w: 60, h: 10, vx: 0, vy: 3, minY: 615, maxY: 835},
-    {x: 300, y: 845, w: 10, h: 50, vx: 3, vy: 0, minX: 265, maxX: 715}
-];
-
-canvas.addEventListener('mousemove', (e) => {
-    const rect = canvas.getBoundingClientRect();
-    let screenMouseX = e.clientX - rect.left;
-    let screenMouseY = e.clientY - rect.top;
-    
-    // 画面上のマウス座標をワールド座標（マップ全体の位置）に変換
-    mouseWorldX = screenMouseX + cameraX;
-    mouseWorldY = screenMouseY + cameraY;
-});
-
-canvas.addEventListener('mousedown', () => {
-    if (gameState === 'START') {
-        if (mouseWorldX >= startZone.x && mouseWorldX <= startZone.x + startZone.w &&
-            mouseWorldY >= startZone.y && mouseWorldY <= startZone.y + startZone.h) {
+window.addEventListener('keydown', (e) => {
+    if (keys.hasOwnProperty(e.key)) {
+        keys[e.key] = true;
+        if (gameState === 'START' || gameState === 'GAMEOVER' || gameState === 'CLEAR') {
+            resetGame();
             gameState = 'PLAYING';
-            playerX = startZone.x + startZone.w / 2;
-            playerY = startZone.y + startZone.h / 2;
         }
-    } else if (gameState === 'GAMEOVER' || gameState === 'CLEAR') {
-        gameState = 'START';
-        playerX = startZone.x + startZone.w / 2;
-        playerY = startZone.y + startZone.h / 2;
-        mouseWorldX = playerX;
-        mouseWorldY = playerY;
     }
 });
+
+window.addEventListener('keyup', (e) => {
+    if (keys.hasOwnProperty(e.key)) keys[e.key] = false;
+});
+
+function resetGame() {
+    playerX = 40;
+    playerY = 40;
+}
+
+// スタート・ゴール位置
+const startZone = {x: 10, y: 10, w: 60, h: 60};
+const goalZone = {x: 200, y: 1650, w: 60, h: 60};
+
+// --- 分岐なし1本道の外壁 ---
+const walls = [
+    // スタート部屋
+    {x: 0, y: 0, w: 80, h: 10}, {x: 0, y: 0, w: 10, h: 80}, {x: 0, y: 70, w: 10, h: 10},
+
+    // 1. 手書きイラスト再現ゾーン（横移動）
+    {x: 70, y: 0, w: 740, h: 10},
+    {x: 70, y: 70, w: 730, h: 10},
+    // 上下の固定突起
+    {x: 150, y: 10, w: 5, h: 40}, {x: 270, y: 10, w: 5, h: 45}, {x: 390, y: 10, w: 5, h: 40}, {x: 510, y: 10, w: 5, h: 45},
+    {x: 210, y: 30, w: 5, h: 40}, {x: 330, y: 25, w: 5, h: 45}, {x: 450, y: 30, w: 5, h: 40}, {x: 570, y: 25, w: 5, h: 45},
+
+    // 2. 垂直落下 ＋ プレス機ゾーン
+    {x: 800, y: 0, w: 10, h: 400},
+    {x: 730, y: 70, w: 10, h: 260},
+
+    // 3. クランク＆回転プロペラゾーン
+    {x: 100, y: 320, w: 640, h: 10},
+    {x: 170, y: 390, w: 640, h: 10},
+
+    // 4. 左下降＆トゲ伸縮ゾーン
+    {x: 100, y: 320, w: 10, h: 300},
+    {x: 170, y: 390, w: 10, h: 170},
+
+    // 5. ロングスライドバーゾーン（右移動）
+    {x: 100, y: 610, w: 700, h: 10},
+    {x: 170, y: 550, w: 560, h: 10},
+
+    // 6. 下降ギミック密集ゾーン
+    {x: 790, y: 610, w: 10, h: 400},
+    {x: 720, y: 550, w: 10, h: 400},
+
+    // 7. 高速往復バーゾーン（左移動）
+    {x: 200, y: 1000, w: 600, h: 10},
+    {x: 260, y: 940, w: 470, h: 10},
+
+    // 8. ラストスパート（ゴール前下降）
+    {x: 200, y: 1000, w: 10, h: 710},
+    {x: 260, y: 940, w: 10, h: 710},
+    {x: 200, y: 1710, w: 70, h: 10}
+];
+
+// --- 移動・伸縮・スライド障害物 ---
+const movingObstacles = [
+    // 垂直落下の往復壁
+    {x: 735, y: 120, w: 60, h: 8, vx: -2.0, vy: 0, minX: 735, maxX: 795},
+    {x: 735, y: 220, w: 60, h: 8, vx: 2.0, vy: 0, minX: 735, maxX: 795},
+
+    // ロングストレートの縦スライドバー
+    {x: 200, y: 560, w: 12, h: 45, vx: 3.5, vy: 0, minX: 180, maxX: 710},
+    {x: 600, y: 560, w: 12, h: 45, vx: -3.5, vy: 0, minX: 180, maxX: 710},
+
+    // 下降ゾーンのプレスブロック
+    {x: 725, y: 700, w: 60, h: 12, vx: 0, vy: 3, minY: 615, maxY: 935},
+
+    // ラスト前の高速スライド壁
+    {x: 300, y: 945, w: 10, h: 50, vx: 4, vy: 0, minX: 265, maxX: 715},
+    {x: 500, y: 945, w: 10, h: 50, vx: -4, vy: 0, minX: 265, maxX: 715},
+
+    // ゴール手前の押しつぶしトラップ
+    {x: 205, y: 1200, w: 50, h: 10, vx: 0, vy: 2, minY: 1100, maxY: 1300},
+    {x: 205, y: 1450, w: 50, h: 10, vx: 0, vy: -2, minY: 1350, maxY: 1550}
+];
+
+// --- 回転プロペラ障害物 ---
+const spinners = [
+    {cx: 450, cy: 355, length: 28, angle: 0, speed: 0.05},
+    {cx: 250, cy: 355, length: 28, angle: 0, speed: -0.06},
+    {cx: 135, cy: 480, length: 28, angle: 0, speed: 0.07},
+    {cx: 230, cy: 1600, length: 24, angle: 0, speed: 0.08}
+];
+
+function checkCollisionLine(px, py, radius, x1, y1, x2, y2) {
+    let dx = x2 - x1;
+    let dy = y2 - y1;
+    let len = Math.sqrt(dx * dx + dy * dy);
+    let u = ((px - x1) * dx + (py - y1) * dy) / (len * len);
+    u = Math.max(0, Math.min(1, u));
+    let ix = x1 + u * dx;
+    let iy = y1 + u * dy;
+    let dist = Math.sqrt((px - ix) * (px - ix) + (py - iy) * (py - iy));
+    return dist < radius;
+}
 
 function checkCollisionRect(circleX, circleY, radius, rect) {
     let closestX = Math.max(rect.x, Math.min(circleX, rect.x + rect.w));
@@ -155,8 +168,11 @@ function checkCollisionRect(circleX, circleY, radius, rect) {
 
 function update() {
     if (gameState === 'PLAYING') {
-        playerX += (mouseWorldX - playerX) * EASING;
-        playerY += (mouseWorldY - playerY) * EASING;
+        // キーボード移動処理
+        if (keys.ArrowUp) playerY -= PLAYER_SPEED;
+        if (keys.ArrowDown) playerY += PLAYER_SPEED;
+        if (keys.ArrowLeft) playerX -= PLAYER_SPEED;
+        if (keys.ArrowRight) playerX += PLAYER_SPEED;
 
         // 壁との当たり判定
         for (let wall of walls) {
@@ -184,24 +200,37 @@ function update() {
             }
         }
 
+        // 回転プロペラ判定
+        for (let sp of spinners) {
+            sp.angle += sp.speed;
+            let x2 = sp.cx + Math.cos(sp.angle) * sp.length;
+            let y2 = sp.cy + Math.sin(sp.angle) * sp.length;
+            let x1 = sp.cx - Math.cos(sp.angle) * sp.length;
+            let y1 = sp.cy - Math.sin(sp.angle) * sp.length;
+
+            if (checkCollisionLine(playerX, playerY, PLAYER_RADIUS, x1, y1, x2, y2)) {
+                gameState = 'GAMEOVER';
+                deathCount++;
+                break;
+            }
+        }
+
         // ゴール判定
         if (checkCollisionRect(playerX, playerY, PLAYER_RADIUS, goalZone)) {
             gameState = 'CLEAR';
         }
     }
 
-    // カメラ位置を自機が画面中央に来るよう追従させる
-    cameraX = playerX - canvas.width / 2;
-    cameraY = playerY - canvas.height / 2;
-
     deathDisplay.textContent = deathCount;
 
-    // --- 描画処理 ---
+    // --- 描画（近距離ズームカメラ） ---
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     ctx.save();
-    // カメラの移動分だけ全体をオフセット描画
-    ctx.translate(-cameraX, -cameraY);
+    // 画面中央に自機が来るようカメラを原点に移動し、ズーム倍率を適用
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+    ctx.scale(ZOOM, ZOOM);
+    ctx.translate(-playerX, -playerY);
 
     // スタート＆ゴール
     ctx.strokeStyle = '#00ffcc';
@@ -215,11 +244,21 @@ function update() {
     ctx.fillStyle = '#ff0055';
     walls.forEach(wall => ctx.fillRect(wall.x, wall.y, wall.w, wall.h));
 
-    // 移動障害物（赤紫）
-    ctx.fillStyle = '#ff00aa';
+    // 移動障害物（黄）
+    ctx.fillStyle = '#ffee00';
     movingObstacles.forEach(obs => ctx.fillRect(obs.x, obs.y, obs.w, obs.h));
 
-    // 自機（緑）
+    // 回転プロペラ（黄）
+    ctx.strokeStyle = '#ffee00';
+    ctx.lineWidth = 2;
+    spinners.forEach(sp => {
+        ctx.beginPath();
+        ctx.moveTo(sp.cx - Math.cos(sp.angle) * sp.length, sp.cy - Math.sin(sp.angle) * sp.length);
+        ctx.lineTo(sp.cx + Math.cos(sp.angle) * sp.length, sp.cy + Math.sin(sp.angle) * sp.length);
+        ctx.stroke();
+    });
+
+    // 自機（水色）
     ctx.fillStyle = '#00ffcc';
     ctx.beginPath();
     ctx.arc(playerX, playerY, PLAYER_RADIUS, 0, Math.PI * 2);
@@ -236,17 +275,17 @@ function update() {
         ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = '#00ffcc';
-        ctx.fillText('スタート枠をクリックして開始', canvas.width / 2, canvas.height / 2);
+        ctx.fillText('矢印キーを押してスタート', canvas.width / 2, canvas.height / 2);
     } else if (gameState === 'GAMEOVER') {
         ctx.fillStyle = 'rgba(150, 0, 0, 0.75)';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = '#ffffff';
-        ctx.fillText('DEATH - クリックして再挑戦', canvas.width / 2, canvas.height / 2);
+        ctx.fillText('DEATH - 矢印キーでリトライ', canvas.width / 2, canvas.height / 2);
     } else if (gameState === 'CLEAR') {
         ctx.fillStyle = 'rgba(0, 200, 100, 0.85)';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = '#ffffff';
-        ctx.fillText('CLEAR! 完全制覇！', canvas.width / 2, canvas.height / 2);
+        ctx.fillText('CLEAR! 完全制覇おめでとう！', canvas.width / 2, canvas.height / 2);
     }
 
     requestAnimationFrame(update);
