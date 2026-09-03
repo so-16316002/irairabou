@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>精密イライラ棒 - 手書きコース再現</title>
+    <title>全画面・巨大イライラ棒</title>
     <style>
         body {
             background-color: #05050a;
@@ -52,9 +52,9 @@ let gameState = 'START';
 
 // スタート・ゴール
 const startZone = {x: 15, y: 15, w: 50, h: 50};
-const goalZone = {x: 720, y: 520, w: 50, h: 50};
+const goalZone = {x: 15, y: 525, w: 50, h: 50};
 
-// イラスト再現コース（上下から交互に突き出る壁）
+// --- 外壁・静的コース仕切り ---
 const walls = [
     // 外枠
     {x: 0, y: 0, w: 800, h: 10},
@@ -62,45 +62,55 @@ const walls = [
     {x: 0, y: 0, w: 10, h: 600},
     {x: 790, y: 0, w: 10, h: 600},
 
-    // --- メインコースの外壁（手書きの長い通路と右折） ---
-    // 上側の外壁
-    {x: 10, y: 10, w: 770, h: 5},
-    // 下側の外壁（スタート直後から右折まで）
+    // 【エリア1】上部：イラスト再現コース（上下交互の突起）
     {x: 10, y: 65, w: 715, h: 5},
-    // 右折したあとの右外壁
-    {x: 775, y: 10, w: 5, h: 580},
-    // 右折したあとの内側外壁
-    {x: 720, y: 65, w: 5, h: 460},
+    // 上からの突起
+    {x: 100, y: 10, w: 4, h: 32}, {x: 180, y: 10, w: 4, h: 35},
+    {x: 260, y: 10, w: 4, h: 32}, {x: 340, y: 10, w: 4, h: 38},
+    {x: 420, y: 10, w: 4, h: 30}, {x: 500, y: 10, w: 4, h: 35},
+    {x: 580, y: 10, w: 4, h: 32}, {x: 660, y: 10, w: 4, h: 36},
+    // 下からの突起
+    {x: 140, y: 33, w: 4, h: 32}, {x: 220, y: 30, w: 4, h: 35},
+    {x: 300, y: 33, w: 4, h: 32}, {x: 380, y: 28, w: 4, h: 37},
+    {x: 460, y: 35, w: 4, h: 30}, {x: 540, y: 30, w: 4, h: 35},
+    {x: 620, y: 33, w: 4, h: 32}, {x: 700, y: 28, w: 4, h: 37},
 
-    // --- 上下から交互に突き出る仕切り（イラスト再現部分） ---
-    // 上から下へ突き出る突起（奇数）
-    {x: 100, y: 15, w: 4, h: 32},
-    {x: 180, y: 15, w: 4, h: 35},
-    {x: 260, y: 15, w: 4, h: 32},
-    {x: 340, y: 15, w: 4, h: 38},
-    {x: 420, y: 15, w: 4, h: 30},
-    {x: 500, y: 15, w: 4, h: 35},
-    {x: 580, y: 15, w: 4, h: 32},
-    {x: 660, y: 15, w: 4, h: 36},
+    // 【エリア2】右側：縦下降ゾーン
+    {x: 725, y: 65, w: 5, h: 450},
+    {x: 730, y: 150, w: 35, h: 5},
+    {x: 755, y: 250, w: 35, h: 5},
+    {x: 730, y: 350, w: 35, h: 5},
 
-    // 下から上へ突き出る突起（偶数）
-    {x: 140, y: 33, w: 4, h: 32},
-    {x: 220, y: 30, w: 4, h: 35},
-    {x: 300, y: 33, w: 4, h: 32},
-    {x: 380, y: 28, w: 4, h: 37},
-    {x: 460, y: 35, w: 4, h: 30},
-    {x: 540, y: 30, w: 4, h: 35},
-    {x: 620, y: 33, w: 4, h: 32},
-    {x: 700, y: 28, w: 4, h: 37},
+    // 【エリア3】中央：ジグザグ迷路ゾーン
+    {x: 100, y: 515, w: 630, h: 5},
+    {x: 100, y: 150, w: 550, h: 5},
+    {x: 200, y: 220, w: 525, h: 5},
+    {x: 100, y: 290, w: 550, h: 5},
+    {x: 200, y: 360, w: 525, h: 5},
+    {x: 100, y: 430, w: 550, h: 5},
 
-    // --- 右折後の縦コース仕切り（左右交互） ---
-    {x: 725, y: 120, w: 32, h: 4},
-    {x: 743, y: 180, w: 32, h: 4},
-    {x: 725, y: 240, w: 32, h: 4},
-    {x: 743, y: 300, w: 32, h: 4},
-    {x: 725, y: 360, w: 32, h: 4},
-    {x: 743, y: 420, w: 32, h: 4},
-    {x: 725, y: 480, w: 32, h: 4}
+    // 【エリア4】左下：最終ストレート
+    {x: 80, y: 515, w: 5, h: 75}
+];
+
+// --- 動くお邪魔仕掛け ---
+// 1. 往復移動する壁
+const movingObstacles = [
+    {x: 730, y: 430, w: 30, h: 6, vx: 0, vy: -2, minY: 370, maxY: 500},
+    {x: 150, y: 155, w: 6, h: 35, vx: 3, vy: 0, minX: 110, maxX: 600},
+    {x: 500, y: 225, w: 6, h: 35, vx: -4, vy: 0, minX: 210, maxX: 700},
+    {x: 150, y: 295, w: 6, h: 35, vx: 2.5, vy: 0, minX: 110, maxX: 600},
+    {x: 500, y: 365, w: 6, h: 35, vx: -3.5, vy: 0, minX: 210, maxX: 700},
+    {x: 150, y: 435, w: 6, h: 35, vx: 4, vy: 0, minX: 110, maxX: 600}
+];
+
+// 2. 回転するプロペラ障害物
+const spinners = [
+    {cx: 650, cy: 185, length: 28, angle: 0, speed: 0.04},
+    {cx: 150, cy: 255, length: 28, angle: 0, speed: -0.05},
+    {cx: 650, cy: 325, length: 28, angle: 0, speed: 0.04},
+    {cx: 150, cy: 395, length: 28, angle: 0, speed: -0.06},
+    {cx: 650, cy: 465, length: 28, angle: 0, speed: 0.05}
 ];
 
 canvas.addEventListener('mousemove', (e) => {
@@ -124,6 +134,20 @@ canvas.addEventListener('mousedown', () => {
     }
 });
 
+// 当たり判定：点と線分
+function checkCollisionLine(px, py, radius, x1, y1, x2, y2) {
+    let dx = x2 - x1;
+    let dy = y2 - y1;
+    let len = Math.sqrt(dx * dx + dy * dy);
+    let u = ((px - x1) * dx + (py - y1) * dy) / (len * len);
+    u = Math.max(0, Math.min(1, u));
+    let ix = x1 + u * dx;
+    let iy = y1 + u * dy;
+    let dist = Math.sqrt((px - ix) * (px - ix) + (py - iy) * (py - iy));
+    return dist < radius;
+}
+
+// 当たり判定：点と矩形
 function checkCollisionRect(circleX, circleY, radius, rect) {
     let closestX = Math.max(rect.x, Math.min(circleX, rect.x + rect.w));
     let closestY = Math.max(rect.y, Math.min(circleY, rect.y + rect.h));
@@ -137,9 +161,41 @@ function update() {
         playerX += (mouseX - playerX) * EASING;
         playerY += (mouseY - playerY) * EASING;
 
-        // 壁との当たり判定
+        // 静的な壁判定
         for (let wall of walls) {
             if (checkCollisionRect(playerX, playerY, PLAYER_RADIUS, wall)) {
+                gameState = 'GAMEOVER';
+                deathCount++;
+                break;
+            }
+        }
+
+        // 往復する壁の更新と判定
+        for (let obs of movingObstacles) {
+            if (obs.vx) {
+                obs.x += obs.vx;
+                if (obs.x < obs.minX || obs.x + obs.w > obs.maxX) obs.vx *= -1;
+            }
+            if (obs.vy) {
+                obs.y += obs.vy;
+                if (obs.y < obs.minY || obs.y + obs.h > obs.maxY) obs.vy *= -1;
+            }
+            if (checkCollisionRect(playerX, playerY, PLAYER_RADIUS, obs)) {
+                gameState = 'GAMEOVER';
+                deathCount++;
+                break;
+            }
+        }
+
+        // 回転プロペラの更新と判定
+        for (let sp of spinners) {
+            sp.angle += sp.speed;
+            let x2 = sp.cx + Math.cos(sp.angle) * sp.length;
+            let y2 = sp.cy + Math.sin(sp.angle) * sp.length;
+            let x1 = sp.cx - Math.cos(sp.angle) * sp.length;
+            let y1 = sp.cy - Math.sin(sp.angle) * sp.length;
+
+            if (checkCollisionLine(playerX, playerY, PLAYER_RADIUS, x1, y1, x2, y2)) {
                 gameState = 'GAMEOVER';
                 deathCount++;
                 break;
@@ -154,7 +210,7 @@ function update() {
 
     deathDisplay.textContent = deathCount;
 
-    // 描画
+    // --- 描画処理 ---
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // スタート＆ゴール
@@ -165,9 +221,23 @@ function update() {
     ctx.fillStyle = '#ff00ff';
     ctx.fillRect(goalZone.x, goalZone.y, goalZone.w, goalZone.h);
 
-    // 壁（赤）
+    // 固定壁（赤）
     ctx.fillStyle = '#ff0055';
     walls.forEach(wall => ctx.fillRect(wall.x, wall.y, wall.w, wall.h));
+
+    // 移動障害物（黄）
+    ctx.fillStyle = '#ffee00';
+    movingObstacles.forEach(obs => ctx.fillRect(obs.x, obs.y, obs.w, obs.h));
+
+    // 回転プロペラ（黄）
+    ctx.strokeStyle = '#ffee00';
+    ctx.lineWidth = 3;
+    spinners.forEach(sp => {
+        ctx.beginPath();
+        ctx.moveTo(sp.cx - Math.cos(sp.angle) * sp.length, sp.cy - Math.sin(sp.angle) * sp.length);
+        ctx.lineTo(sp.cx + Math.cos(sp.angle) * sp.length, sp.cy + Math.sin(sp.angle) * sp.length);
+        ctx.stroke();
+    });
 
     // 自機（緑）
     ctx.fillStyle = '#00ffcc';
@@ -175,7 +245,7 @@ function update() {
     ctx.arc(playerX, playerY, PLAYER_RADIUS, 0, Math.PI * 2);
     ctx.fill();
 
-    // UIテキスト
+    // UIメッセージ
     ctx.fillStyle = '#ffffff';
     ctx.font = '22px sans-serif';
     ctx.textAlign = 'center';
@@ -194,7 +264,7 @@ function update() {
         ctx.fillStyle = 'rgba(0, 200, 100, 0.85)';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = '#ffffff';
-        ctx.fillText('CLEAR! お見事！', canvas.width / 2, canvas.height / 2);
+        ctx.fillText('CLEAR! 完全制覇！', canvas.width / 2, canvas.height / 2);
     }
 
     requestAnimationFrame(update);
