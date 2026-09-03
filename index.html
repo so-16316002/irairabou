@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>難関・イライラ棒（11px調整版）</title>
+    <title>難関・イライラ棒（調整版）</title>
     <style>
         body {
             background-color: #05050a;
@@ -84,15 +84,13 @@ const walls = [
     {x: 80, y: 10, w: 710, h: 10},
     {x: 80, y: 80, w: 630, h: 10},
 
-    // --- 上下からの突起（隙間を11pxに設定） ---
-    // 上からの棒（下側に11pxの隙間を残す：長さ49px）
+    // 上下からの突起（隙間11px）
     {x: 160, y: 20, w: 6, h: 49}, 
     {x: 280, y: 20, w: 6, h: 49}, 
     {x: 400, y: 20, w: 6, h: 49}, 
     {x: 520, y: 20, w: 6, h: 49}, 
     {x: 640, y: 20, w: 6, h: 49},
 
-    // 下からの棒（上側に11pxの隙間を残す：y=31から開始）
     {x: 220, y: 31, w: 6, h: 49}, 
     {x: 340, y: 31, w: 6, h: 49}, 
     {x: 460, y: 31, w: 6, h: 49}, 
@@ -130,15 +128,22 @@ const walls = [
     {x: 10, y: 1580, w: 100, h: 10}
 ];
 
-// --- 動く障害物（徐々にスピードアップ） ---
+// --- 動く障害物（サイズを7px縮小＆速度を低速化） ---
 const movingObstacles = [
-    {x: 715, y: 110, w: 55, h: 8, baseSpeed: 1.2, dirX: 1, dirY: 0, minX: 715, maxX: 775, minY: 0, maxY: 0},
-    {x: 300, y: 195, w: 8, h: 45, baseSpeed: 2.2, dirX: 0, dirY: 1, minX: 0, maxX: 0, minY: 195, maxY: 240},
-    {x: 215, y: 300, w: 45, h: 8, baseSpeed: 2.5, dirX: 1, dirY: 0, minX: 215, maxX: 265, minY: 0, maxY: 0},
-    {x: 350, y: 485, w: 8, h: 45, baseSpeed: 3.5, dirX: 0, dirY: 1, minX: 0, maxX: 0, minY: 485, maxY: 530},
-    {x: 705, y: 600, w: 55, h: 8, baseSpeed: 3.8, dirX: 1, dirY: 0, minX: 705, maxX: 765, minY: 0, maxY: 0},
-    {x: 300, y: 825, w: 10, h: 45, baseSpeed: 5.0, dirX: 0, dirY: 1, minX: 0, maxX: 0, minY: 825, maxY: 870},
-    {x: 105, y: 1200, w: 55, h: 8, baseSpeed: 5.5, dirX: 1, dirY: 0, minX: 105, maxX: 165, minY: 0, maxY: 0}
+    // 序盤（超ゆっくり：速度 0.6）
+    {x: 715, y: 110, w: 48, h: 8, baseSpeed: 0.6, dirX: 1, dirY: 0, minX: 715, maxX: 775, minY: 0, maxY: 0},
+    
+    // 中盤前半（ゆっくり：速度 1.0〜1.2）
+    {x: 300, y: 195, w: 8, h: 38, baseSpeed: 1.0, dirX: 0, dirY: 1, minX: 0, maxX: 0, minY: 195, maxY: 240},
+    {x: 215, y: 300, w: 38, h: 8, baseSpeed: 1.2, dirX: 1, dirY: 0, minX: 215, maxX: 265, minY: 0, maxY: 0},
+
+    // 中盤後半（控えめな速度：速度 1.5〜1.8）
+    {x: 350, y: 485, w: 8, h: 38, baseSpeed: 1.5, dirX: 0, dirY: 1, minX: 0, maxX: 0, minY: 485, maxY: 530},
+    {x: 705, y: 600, w: 48, h: 8, baseSpeed: 1.8, dirX: 1, dirY: 0, minX: 705, maxX: 765, minY: 0, maxY: 0},
+
+    // 終盤（適度な手ごたえ：速度 2.2〜2.5）
+    {x: 300, y: 825, w: 10, h: 38, baseSpeed: 2.2, dirX: 0, dirY: 1, minX: 0, maxX: 0, minY: 825, maxY: 870},
+    {x: 105, y: 1200, w: 48, h: 8, baseSpeed: 2.5, dirX: 1, dirY: 0, minX: 105, maxX: 165, minY: 0, maxY: 0}
 ];
 
 function checkCollisionRect(circleX, circleY, radius, rect) {
