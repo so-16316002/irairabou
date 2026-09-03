@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>新生・イライラ棒</title>
+    <title>難関・ギリギリイライラ棒</title>
     <style>
         body {
             background-color: #05050a;
@@ -40,9 +40,9 @@ const ctx = canvas.getContext('2d');
 const deathDisplay = document.getElementById('death-count');
 
 // --- 基本設定 ---
-const ZOOM = 2.0;
-const PLAYER_SPEED = 2.8;
-const PLAYER_RADIUS = 3.5;
+const ZOOM = 2.4;            // 画面をより拡大表示
+const PLAYER_SPEED = 2.5;    // 精密操作しやすい速度
+const PLAYER_RADIUS = 3.5;   // 自機の半径（直径7px）
 
 let playerX = 50, playerY = 50;
 let deathCount = 0;
@@ -71,92 +71,72 @@ function resetGame() {
 
 // スタート・ゴール
 const startZone = {x: 20, y: 20, w: 60, h: 60};
-const goalZone = {x: 60, y: 1540, w: 80, h: 80};
+const goalZone = {x: 20, y: 1640, w: 80, h: 80};
 
-// --- 完全リニューアル外壁（1本道） ---
+// --- 外壁（曲がりくねったクランク構造） ---
 const walls = [
     // スタート部屋
     {x: 10, y: 10, w: 80, h: 10},
     {x: 10, y: 10, w: 10, h: 80},
-    {x: 10, y: 80, w: 80, h: 10}, // スタート下を密閉
+    {x: 10, y: 80, w: 80, h: 10}, // スタート下密閉
 
-    // エリア1: イラスト再現突起ゾーン（右進）
+    // エリア1: イラスト再現（長さを伸ばし、自機がギリギリ通れる8pxの隙間のみ残す）
     {x: 80, y: 10, w: 710, h: 10},
     {x: 80, y: 80, w: 630, h: 10},
-    // 上下の突起（通過幅にゆとりを保持）
-    {x: 160, y: 20, w: 6, h: 35}, {x: 280, y: 20, w: 6, h: 35}, {x: 400, y: 20, w: 6, h: 35}, {x: 520, y: 20, w: 6, h: 35}, {x: 640, y: 20, w: 6, h: 35},
-    {x: 220, y: 35, w: 6, h: 35}, {x: 340, y: 35, w: 6, h: 35}, {x: 460, y: 35, w: 6, h: 35}, {x: 580, y: 35, w: 6, h: 35},
+    // 上からの長い棒（隙間8px）
+    {x: 160, y: 20, w: 6, h: 52}, {x: 280, y: 20, w: 6, h: 52}, {x: 400, y: 20, w: 6, h: 52}, {x: 520, y: 20, w: 6, h: 52}, {x: 640, y: 20, w: 6, h: 52},
+    // 下からの長い棒（隙間8px）
+    {x: 220, y: 18, w: 6, h: 52}, {x: 340, y: 18, w: 6, h: 52}, {x: 460, y: 18, w: 6, h: 52}, {x: 580, y: 18, w: 6, h: 52},
 
-    // エリア2: 縦下降ゾーン1（下進）
-    {x: 780, y: 10, w: 10, h: 400},
-    {x: 700, y: 80, w: 10, h: 250},
+    // コーナー1：直角に下へ曲がる
+    {x: 780, y: 10, w: 10, h: 250},
+    {x: 700, y: 80, w: 10, h: 110},
 
-    // エリア3: 横移動ゾーン（左進）
-    {x: 100, y: 320, w: 610, h: 10},
-    {x: 180, y: 400, w: 610, h: 10},
+    // コーナー2：左へ曲がる（クランク）
+    {x: 200, y: 250, w: 590, h: 10},
+    {x: 270, y: 180, w: 440, h: 10},
 
-    // エリア4: 縦下降ゾーン2（下進）
-    {x: 100, y: 320, w: 10, h: 400},
-    {x: 180, y: 400, w: 10, h: 240},
+    // コーナー3：下へ曲がる
+    {x: 200, y: 250, w: 10, h: 300},
+    {x: 270, y: 180, w: 10, h: 300},
 
-    // エリア5: ロングストレート（右進）
-    {x: 100, y: 710, w: 690, h: 10},
-    {x: 180, y: 630, w: 530, h: 10},
+    // コーナー4：右へ曲がる（S字構造）
+    {x: 200, y: 540, w: 500, h: 10},
+    {x: 270, y: 470, w: 510, h: 10},
 
-    // エリア6: クランク下降（下進）
-    {x: 780, y: 710, w: 10, h: 400},
-    {x: 700, y: 630, w: 10, h: 400},
+    // コーナー5：下へ曲がる
+    {x: 770, y: 470, w: 10, h: 350},
+    {x: 690, y: 540, w: 10, h: 350},
 
-    // エリア7: ジグザグラストスパート（左進）
-    {x: 100, y: 1100, w: 610, h: 10},
-    {x: 180, y: 1020, w: 610, h: 10},
+    // コーナー6：左へ曲がる（ラスト前の直線）
+    {x: 100, y: 810, w: 600, h: 10},
+    {x: 170, y: 880, w: 610, h: 10},
 
-    // エリア8: ゴールエリア（下進）
-    {x: 100, y: 1100, w: 10, h: 540},
-    {x: 180, y: 1020, w: 10, h: 620},
-    {x: 10, y: 1630, w: 180, h: 10},
-    {x: 10, y: 1500, w: 10, h: 140},
-    {x: 10, y: 1500, w: 90, h: 10}
+    // コーナー7：下へ曲がりゴールへ
+    {x: 100, y: 810, w: 10, h: 850},
+    {x: 170, y: 880, w: 10, h: 710},
+    {x: 10, y: 1720, w: 170, h: 10},
+    {x: 10, y: 1580, w: 10, h: 140},
+    {x: 10, y: 1580, w: 100, h: 10}
 ];
 
-// --- 調整済み移動障害物（詰み回避設計） ---
+// --- 動く黄色のバー（順番にスピードが段階的に加速する設定） ---
 const movingObstacles = [
-    // エリア2：可動域を制限し、退避場所を固定作成
-    {x: 715, y: 150, w: 35, h: 8, vx: 2.0, vy: 0, minX: 715, maxX: 775},
-    {x: 740, y: 250, w: 35, h: 8, vx: -2.0, vy: 0, minX: 715, maxX: 775},
+    // 序盤（ゆっくり：速度 1.2）
+    {x: 715, y: 110, w: 55, h: 8, baseSpeed: 1.2, dirX: 1, dirY: 0, minX: 715, maxX: 775, minY: 0, maxY: 0},
+    
+    // 中盤前半（やや速い：速度 2.2）
+    {x: 300, y: 195, w: 8, h: 45, baseSpeed: 2.2, dirX: 0, dirY: 1, minX: 0, maxX: 0, minY: 195, maxY: 240},
+    {x: 215, y: 300, w: 45, h: 8, baseSpeed: 2.5, dirX: 1, dirY: 0, minX: 215, maxX: 265, minY: 0, maxY: 0},
 
-    // エリア3：上下にスライドする障害物
-    {x: 300, y: 335, w: 8, h: 35, vx: 0, vy: 1.8, minY: 335, maxY: 395},
-    {x: 500, y: 335, w: 8, h: 35, vx: 0, vy: -1.8, minY: 335, maxY: 395},
+    // 中盤後半（速い：速度 3.5）
+    {x: 350, y: 485, w: 8, h: 45, baseSpeed: 3.5, dirX: 0, dirY: 1, minX: 0, maxX: 0, minY: 485, maxY: 530},
+    {x: 705, y: 600, w: 55, h: 8, baseSpeed: 3.8, dirX: 1, dirY: 0, minX: 705, maxX: 765, minY: 0, maxY: 0},
 
-    // エリア5：横ストレートを往復するバー
-    {x: 250, y: 645, w: 10, h: 40, vx: 3.0, vy: 0, minX: 200, maxX: 680},
-
-    // エリア6：下降プレスブロック
-    {x: 715, y: 750, w: 60, h: 10, vx: 0, vy: 2.2, minY: 650, maxY: 1080},
-
-    // エリア7：直前エリアの低速往復バー
-    {x: 400, y: 1035, w: 10, h: 50, vx: 2.5, vy: 0, minX: 200, maxX: 680}
+    // 終盤（超高速：速度 5.0）
+    {x: 300, y: 825, w: 10, h: 45, baseSpeed: 5.0, dirX: 0, dirY: 1, minX: 0, maxX: 0, minY: 825, maxY: 870},
+    {x: 105, y: 1200, w: 55, h: 8, baseSpeed: 5.5, dirX: 1, dirY: 0, minX: 105, maxX: 165, minY: 0, maxY: 0}
 ];
-
-// --- 回転プロペラ（接触判定の最適化） ---
-const spinners = [
-    {cx: 140, cy: 500, length: 22, angle: 0, speed: 0.04},
-    {cx: 400, cy: 1060, length: 20, angle: 0, speed: -0.05},
-    {cx: 140, cy: 1300, length: 22, angle: 0, speed: 0.05}
-];
-
-function checkCollisionLine(px, py, radius, x1, y1, x2, y2) {
-    let dx = x2 - x1;
-    let dy = y2 - y1;
-    let len = Math.sqrt(dx * dx + dy * dy);
-    let u = ((px - x1) * dx + (py - y1) * dy) / (len * len);
-    u = Math.max(0, Math.min(1, u));
-    let ix = x1 + u * dx;
-    let iy = y1 + u * dy;
-    let dist = Math.sqrt((px - ix) * (px - ix) + (py - iy) * (py - iy));
-    return dist < radius;
-}
 
 function checkCollisionRect(circleX, circleY, radius, rect) {
     let closestX = Math.max(rect.x, Math.min(circleX, rect.x + rect.w));
@@ -182,32 +162,17 @@ function update() {
             }
         }
 
-        // 動く障害物判定
+        // 動くお邪魔判定（スピード適用）
         for (let obs of movingObstacles) {
-            if (obs.vx) {
-                obs.x += obs.vx;
-                if (obs.x < obs.minX || obs.x + obs.w > obs.maxX) obs.vx *= -1;
+            if (obs.dirX !== 0) {
+                obs.x += obs.baseSpeed * obs.dirX;
+                if (obs.x < obs.minX || obs.x + obs.w > obs.maxX) obs.dirX *= -1;
             }
-            if (obs.vy) {
-                obs.y += obs.vy;
-                if (obs.y < obs.minY || obs.y + obs.h > obs.maxY) obs.vy *= -1;
+            if (obs.dirY !== 0) {
+                obs.y += obs.baseSpeed * obs.dirY;
+                if (obs.y < obs.minY || obs.y + obs.h > obs.maxY) obs.dirY *= -1;
             }
             if (checkCollisionRect(playerX, playerY, PLAYER_RADIUS, obs)) {
-                gameState = 'GAMEOVER';
-                deathCount++;
-                break;
-            }
-        }
-
-        // プロペラ判定
-        for (let sp of spinners) {
-            sp.angle += sp.speed;
-            let x2 = sp.cx + Math.cos(sp.angle) * sp.length;
-            let y2 = sp.cy + Math.sin(sp.angle) * sp.length;
-            let x1 = sp.cx - Math.cos(sp.angle) * sp.length;
-            let y1 = sp.cy - Math.sin(sp.angle) * sp.length;
-
-            if (checkCollisionLine(playerX, playerY, PLAYER_RADIUS, x1, y1, x2, y2)) {
                 gameState = 'GAMEOVER';
                 deathCount++;
                 break;
@@ -245,16 +210,6 @@ function update() {
     // 移動障害物（黄）
     ctx.fillStyle = '#ffee00';
     movingObstacles.forEach(obs => ctx.fillRect(obs.x, obs.y, obs.w, obs.h));
-
-    // 回転プロペラ（黄）
-    ctx.strokeStyle = '#ffee00';
-    ctx.lineWidth = 2;
-    spinners.forEach(sp => {
-        ctx.beginPath();
-        ctx.moveTo(sp.cx - Math.cos(sp.angle) * sp.length, sp.cy - Math.sin(sp.angle) * sp.length);
-        ctx.lineTo(sp.cx + Math.cos(sp.angle) * sp.length, sp.cy + Math.sin(sp.angle) * sp.length);
-        ctx.stroke();
-    });
 
     // 自機（水色）
     ctx.fillStyle = '#00ffcc';
