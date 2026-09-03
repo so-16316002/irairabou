@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>近距離カメラ・1本道イライラ棒（調整版）</title>
+    <title>新生・イライラ棒</title>
     <style>
         body {
             background-color: #05050a;
@@ -39,16 +39,15 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const deathDisplay = document.getElementById('death-count');
 
-// --- 設定パラメータ ---
-const ZOOM = 2.2;           // カメラ倍率
-const PLAYER_SPEED = 2.8;   // 移動速度
-const PLAYER_RADIUS = 3;    // 自機サイズ
+// --- 基本設定 ---
+const ZOOM = 2.0;
+const PLAYER_SPEED = 2.8;
+const PLAYER_RADIUS = 3.5;
 
-let playerX = 40, playerY = 40;
+let playerX = 50, playerY = 50;
 let deathCount = 0;
 let gameState = 'START';
 
-// キー入力状態
 const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
 
 window.addEventListener('keydown', (e) => {
@@ -66,85 +65,85 @@ window.addEventListener('keyup', (e) => {
 });
 
 function resetGame() {
-    playerX = 40;
-    playerY = 40;
+    playerX = 50;
+    playerY = 50;
 }
 
-// スタート・ゴール位置
-const startZone = {x: 10, y: 10, w: 60, h: 60};
-const goalZone = {x: 200, y: 1650, w: 60, h: 60};
+// スタート・ゴール
+const startZone = {x: 20, y: 20, w: 60, h: 60};
+const goalZone = {x: 60, y: 1540, w: 80, h: 80};
 
-// --- 分岐なし1本道の外壁（スタート下の抜け道を完全に封鎖） ---
+// --- 完全リニューアル外壁（1本道） ---
 const walls = [
-    // スタート部屋（下側を完全ブロック）
-    {x: 0, y: 0, w: 80, h: 10}, 
-    {x: 0, y: 0, w: 10, h: 80}, 
-    {x: 0, y: 70, w: 80, h: 10}, // スタート下の道を完全に塞ぐ壁
+    // スタート部屋
+    {x: 10, y: 10, w: 80, h: 10},
+    {x: 10, y: 10, w: 10, h: 80},
+    {x: 10, y: 80, w: 80, h: 10}, // スタート下を密閉
 
-    // 1. 手書きイラスト再現ゾーン（右へ進むコース）
-    {x: 70, y: 0, w: 740, h: 10},
-    // 上下の固定突起
-    {x: 150, y: 10, w: 5, h: 40}, {x: 270, y: 10, w: 5, h: 45}, {x: 390, y: 10, w: 5, h: 40}, {x: 510, y: 10, w: 5, h: 45},
-    {x: 210, y: 30, w: 5, h: 40}, {x: 330, y: 25, w: 5, h: 45}, {x: 450, y: 30, w: 5, h: 40}, {x: 570, y: 25, w: 5, h: 45},
+    // エリア1: イラスト再現突起ゾーン（右進）
+    {x: 80, y: 10, w: 710, h: 10},
+    {x: 80, y: 80, w: 630, h: 10},
+    // 上下の突起（通過幅にゆとりを保持）
+    {x: 160, y: 20, w: 6, h: 35}, {x: 280, y: 20, w: 6, h: 35}, {x: 400, y: 20, w: 6, h: 35}, {x: 520, y: 20, w: 6, h: 35}, {x: 640, y: 20, w: 6, h: 35},
+    {x: 220, y: 35, w: 6, h: 35}, {x: 340, y: 35, w: 6, h: 35}, {x: 460, y: 35, w: 6, h: 35}, {x: 580, y: 35, w: 6, h: 35},
 
-    // 2. 垂直落下ゾーン
-    {x: 800, y: 0, w: 10, h: 400},
-    {x: 730, y: 70, w: 10, h: 260},
+    // エリア2: 縦下降ゾーン1（下進）
+    {x: 780, y: 10, w: 10, h: 400},
+    {x: 700, y: 80, w: 10, h: 250},
 
-    // 3. クランク＆回転プロペラゾーン（左へ進むコース）
-    {x: 100, y: 320, w: 640, h: 10},
-    {x: 170, y: 390, w: 640, h: 10},
+    // エリア3: 横移動ゾーン（左進）
+    {x: 100, y: 320, w: 610, h: 10},
+    {x: 180, y: 400, w: 610, h: 10},
 
-    // 4. 左下降ゾーン
-    {x: 100, y: 320, w: 10, h: 300},
-    {x: 170, y: 390, w: 10, h: 170},
+    // エリア4: 縦下降ゾーン2（下進）
+    {x: 100, y: 320, w: 10, h: 400},
+    {x: 180, y: 400, w: 10, h: 240},
 
-    // 5. ロングスライドバーゾーン（右へ進むコース）
-    {x: 100, y: 610, w: 700, h: 10},
-    {x: 170, y: 550, w: 560, h: 10},
+    // エリア5: ロングストレート（右進）
+    {x: 100, y: 710, w: 690, h: 10},
+    {x: 180, y: 630, w: 530, h: 10},
 
-    // 6. 下降ギミック密集ゾーン
-    {x: 790, y: 610, w: 10, h: 400},
-    {x: 720, y: 550, w: 10, h: 400},
+    // エリア6: クランク下降（下進）
+    {x: 780, y: 710, w: 10, h: 400},
+    {x: 700, y: 630, w: 10, h: 400},
 
-    // 7. 高速往復バーゾーン（左へ進むコース）
-    {x: 200, y: 1000, w: 600, h: 10},
-    {x: 260, y: 940, w: 470, h: 10},
+    // エリア7: ジグザグラストスパート（左進）
+    {x: 100, y: 1100, w: 610, h: 10},
+    {x: 180, y: 1020, w: 610, h: 10},
 
-    // 8. ラストスパート（ゴール前下降）
-    {x: 200, y: 1000, w: 10, h: 710},
-    {x: 260, y: 940, w: 10, h: 710},
-    {x: 200, y: 1710, w: 70, h: 10}
+    // エリア8: ゴールエリア（下進）
+    {x: 100, y: 1100, w: 10, h: 540},
+    {x: 180, y: 1020, w: 10, h: 620},
+    {x: 10, y: 1630, w: 180, h: 10},
+    {x: 10, y: 1500, w: 10, h: 140},
+    {x: 10, y: 1500, w: 90, h: 10}
 ];
 
-// --- 移動・スライド障害物（詰まないようにサイズと可動域を最適化） ---
+// --- 調整済み移動障害物（詰み回避設計） ---
 const movingObstacles = [
-    // 垂直落下の往復壁（通り抜け可能な隙間を確保）
-    {x: 735, y: 120, w: 40, h: 8, vx: -2.0, vy: 0, minX: 735, maxX: 795},
-    {x: 755, y: 220, w: 40, h: 8, vx: 2.0, vy: 0, minX: 735, maxX: 795},
+    // エリア2：可動域を制限し、退避場所を固定作成
+    {x: 715, y: 150, w: 35, h: 8, vx: 2.0, vy: 0, minX: 715, maxX: 775},
+    {x: 740, y: 250, w: 35, h: 8, vx: -2.0, vy: 0, minX: 715, maxX: 775},
 
-    // ロングストレートの縦スライドバー（完全遮断しない高さに変更）
-    {x: 200, y: 560, w: 8, h: 32, vx: 3.5, vy: 0, minX: 180, maxX: 710},
-    {x: 600, y: 560, w: 8, h: 32, vx: -3.5, vy: 0, minX: 180, maxX: 710},
+    // エリア3：上下にスライドする障害物
+    {x: 300, y: 335, w: 8, h: 35, vx: 0, vy: 1.8, minY: 335, maxY: 395},
+    {x: 500, y: 335, w: 8, h: 35, vx: 0, vy: -1.8, minY: 335, maxY: 395},
 
-    // 下降ゾーンのプレスブロック（上下に十分な退避スペースを用意）
-    {x: 725, y: 700, w: 60, h: 10, vx: 0, vy: 2.5, minY: 630, maxY: 920},
+    // エリア5：横ストレートを往復するバー
+    {x: 250, y: 645, w: 10, h: 40, vx: 3.0, vy: 0, minX: 200, maxX: 680},
 
-    // ラスト前のスライド壁
-    {x: 300, y: 945, w: 8, h: 38, vx: 3.5, vy: 0, minX: 265, maxX: 715},
-    {x: 500, y: 945, w: 8, h: 38, vx: -3.5, vy: 0, minX: 265, maxX: 715},
+    // エリア6：下降プレスブロック
+    {x: 715, y: 750, w: 60, h: 10, vx: 0, vy: 2.2, minY: 650, maxY: 1080},
 
-    // ゴール手前のトラップ
-    {x: 205, y: 1200, w: 40, h: 8, vx: 0, vy: 2, minY: 1100, maxY: 1280},
-    {x: 215, y: 1450, w: 40, h: 8, vx: 0, vy: -2, minY: 1370, maxY: 1550}
+    // エリア7：直前エリアの低速往復バー
+    {x: 400, y: 1035, w: 10, h: 50, vx: 2.5, vy: 0, minX: 200, maxX: 680}
 ];
 
-// --- 回転プロペラ障害物（半径をやや小さくして通過しやすく調整） ---
+// --- 回転プロペラ（接触判定の最適化） ---
 const spinners = [
-    {cx: 450, cy: 355, length: 22, angle: 0, speed: 0.05},
-    {cx: 250, cy: 355, length: 22, angle: 0, speed: -0.06},
-    {cx: 135, cy: 480, length: 22, angle: 0, speed: 0.07},
-    {cx: 230, cy: 1600, length: 20, angle: 0, speed: 0.08}
+    {cx: 140, cy: 500, length: 22, angle: 0, speed: 0.04},
+    {cx: 400, cy: 1060, length: 20, angle: 0, speed: -0.05},
+    {cx: 140, cy: 1300, length: 22, angle: 0, speed: 0.05}
 ];
 
 function checkCollisionLine(px, py, radius, x1, y1, x2, y2) {
@@ -183,7 +182,7 @@ function update() {
             }
         }
 
-        // 動くお邪魔判定
+        // 動く障害物判定
         for (let obs of movingObstacles) {
             if (obs.vx) {
                 obs.x += obs.vx;
@@ -200,7 +199,7 @@ function update() {
             }
         }
 
-        // 回転プロペラ判定
+        // プロペラ判定
         for (let sp of spinners) {
             sp.angle += sp.speed;
             let x2 = sp.cx + Math.cos(sp.angle) * sp.length;
@@ -223,7 +222,7 @@ function update() {
 
     deathDisplay.textContent = deathCount;
 
-    // 描画（カメラ追従）
+    // 描画
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     ctx.save();
@@ -239,7 +238,7 @@ function update() {
     ctx.fillStyle = '#ff00ff';
     ctx.fillRect(goalZone.x, goalZone.y, goalZone.w, goalZone.h);
 
-    // 固定壁（赤）
+    // 壁（赤）
     ctx.fillStyle = '#ff0055';
     walls.forEach(wall => ctx.fillRect(wall.x, wall.y, wall.w, wall.h));
 
@@ -265,7 +264,7 @@ function update() {
 
     ctx.restore();
 
-    // UIメッセージ
+    // UIテキスト
     ctx.fillStyle = '#ffffff';
     ctx.font = '22px sans-serif';
     ctx.textAlign = 'center';
