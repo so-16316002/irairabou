@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>難関・イライラ棒（調整版）</title>
+    <title>イライラ棒（コース修正版）</title>
     <style>
         body {
             background-color: #05050a;
@@ -73,7 +73,7 @@ function resetGame() {
 const startZone = {x: 20, y: 20, w: 60, h: 60};
 const goalZone = {x: 20, y: 1640, w: 80, h: 80};
 
-// --- 外壁データ ---
+// --- 外壁データ（画像に合わせて開口部を修正） ---
 const walls = [
     // スタート部屋
     {x: 10, y: 10, w: 80, h: 10},
@@ -96,17 +96,17 @@ const walls = [
     {x: 460, y: 31, w: 6, h: 49}, 
     {x: 580, y: 31, w: 6, h: 49},
 
-    // コーナー1（下へ）
+    // 右端コーナー（下へ降ろす）
     {x: 780, y: 10, w: 10, h: 250},
     {x: 700, y: 80, w: 10, h: 110},
 
-    // コーナー2（左へ）
-    {x: 200, y: 250, w: 590, h: 10},
-    {x: 270, y: 180, w: 440, h: 10},
+    // 画像の横通路（右から左へ進むゾーン：y=180〜250）
+    {x: 270, y: 180, w: 440, h: 10}, // 上壁
+    {x: 200, y: 250, w: 590, h: 10}, // 下壁
 
-    // コーナー3（下へ）
-    {x: 200, y: 250, w: 10, h: 300},
-    {x: 270, y: 180, w: 10, h: 300},
+    // 修正ポイント：左奥の行き止まりを消去し、そのまま下へ降りられる接続通路を確保
+    {x: 200, y: 250, w: 10, h: 300}, // 左縦壁
+    {x: 270, y: 190, w: 10, h: 290}, // 右縦壁
 
     // コーナー4（右へ）
     {x: 200, y: 540, w: 500, h: 10},
@@ -128,20 +128,13 @@ const walls = [
     {x: 10, y: 1580, w: 100, h: 10}
 ];
 
-// --- 動く障害物（サイズを7px縮小＆速度を低速化） ---
+// --- 動く障害物 ---
 const movingObstacles = [
-    // 序盤（超ゆっくり：速度 0.6）
     {x: 715, y: 110, w: 48, h: 8, baseSpeed: 0.6, dirX: 1, dirY: 0, minX: 715, maxX: 775, minY: 0, maxY: 0},
-    
-    // 中盤前半（ゆっくり：速度 1.0〜1.2）
     {x: 300, y: 195, w: 8, h: 38, baseSpeed: 1.0, dirX: 0, dirY: 1, minX: 0, maxX: 0, minY: 195, maxY: 240},
     {x: 215, y: 300, w: 38, h: 8, baseSpeed: 1.2, dirX: 1, dirY: 0, minX: 215, maxX: 265, minY: 0, maxY: 0},
-
-    // 中盤後半（控えめな速度：速度 1.5〜1.8）
     {x: 350, y: 485, w: 8, h: 38, baseSpeed: 1.5, dirX: 0, dirY: 1, minX: 0, maxX: 0, minY: 485, maxY: 530},
     {x: 705, y: 600, w: 48, h: 8, baseSpeed: 1.8, dirX: 1, dirY: 0, minX: 705, maxX: 765, minY: 0, maxY: 0},
-
-    // 終盤（適度な手ごたえ：速度 2.2〜2.5）
     {x: 300, y: 825, w: 10, h: 38, baseSpeed: 2.2, dirX: 0, dirY: 1, minX: 0, maxX: 0, minY: 825, maxY: 870},
     {x: 105, y: 1200, w: 48, h: 8, baseSpeed: 2.5, dirX: 1, dirY: 0, minX: 105, maxX: 165, minY: 0, maxY: 0}
 ];
