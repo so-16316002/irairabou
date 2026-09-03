@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>難関・ギリギリイライラ棒</title>
+    <title>難関・イライラ棒（11px調整版）</title>
     <style>
         body {
             background-color: #05050a;
@@ -40,9 +40,9 @@ const ctx = canvas.getContext('2d');
 const deathDisplay = document.getElementById('death-count');
 
 // --- 基本設定 ---
-const ZOOM = 2.4;            // 画面をより拡大表示
-const PLAYER_SPEED = 2.5;    // 精密操作しやすい速度
-const PLAYER_RADIUS = 3.5;   // 自機の半径（直径7px）
+const ZOOM = 2.4;            // ズーム倍率
+const PLAYER_SPEED = 2.5;    // 移動速度
+const PLAYER_RADIUS = 3.5;   // 自機サイズ（直径7px）
 
 let playerX = 50, playerY = 50;
 let deathCount = 0;
@@ -73,46 +73,56 @@ function resetGame() {
 const startZone = {x: 20, y: 20, w: 60, h: 60};
 const goalZone = {x: 20, y: 1640, w: 80, h: 80};
 
-// --- 外壁（曲がりくねったクランク構造） ---
+// --- 外壁データ ---
 const walls = [
     // スタート部屋
     {x: 10, y: 10, w: 80, h: 10},
     {x: 10, y: 10, w: 10, h: 80},
-    {x: 10, y: 80, w: 80, h: 10}, // スタート下密閉
+    {x: 10, y: 80, w: 80, h: 10},
 
-    // エリア1: イラスト再現（長さを伸ばし、自機がギリギリ通れる8pxの隙間のみ残す）
+    // エリア1: 通路幅70px（y:10〜y:80）
     {x: 80, y: 10, w: 710, h: 10},
     {x: 80, y: 80, w: 630, h: 10},
-    // 上からの長い棒（隙間8px）
-    {x: 160, y: 20, w: 6, h: 52}, {x: 280, y: 20, w: 6, h: 52}, {x: 400, y: 20, w: 6, h: 52}, {x: 520, y: 20, w: 6, h: 52}, {x: 640, y: 20, w: 6, h: 52},
-    // 下からの長い棒（隙間8px）
-    {x: 220, y: 18, w: 6, h: 52}, {x: 340, y: 18, w: 6, h: 52}, {x: 460, y: 18, w: 6, h: 52}, {x: 580, y: 18, w: 6, h: 52},
 
-    // コーナー1：直角に下へ曲がる
+    // --- 上下からの突起（隙間を11pxに設定） ---
+    // 上からの棒（下側に11pxの隙間を残す：長さ49px）
+    {x: 160, y: 20, w: 6, h: 49}, 
+    {x: 280, y: 20, w: 6, h: 49}, 
+    {x: 400, y: 20, w: 6, h: 49}, 
+    {x: 520, y: 20, w: 6, h: 49}, 
+    {x: 640, y: 20, w: 6, h: 49},
+
+    // 下からの棒（上側に11pxの隙間を残す：y=31から開始）
+    {x: 220, y: 31, w: 6, h: 49}, 
+    {x: 340, y: 31, w: 6, h: 49}, 
+    {x: 460, y: 31, w: 6, h: 49}, 
+    {x: 580, y: 31, w: 6, h: 49},
+
+    // コーナー1（下へ）
     {x: 780, y: 10, w: 10, h: 250},
     {x: 700, y: 80, w: 10, h: 110},
 
-    // コーナー2：左へ曲がる（クランク）
+    // コーナー2（左へ）
     {x: 200, y: 250, w: 590, h: 10},
     {x: 270, y: 180, w: 440, h: 10},
 
-    // コーナー3：下へ曲がる
+    // コーナー3（下へ）
     {x: 200, y: 250, w: 10, h: 300},
     {x: 270, y: 180, w: 10, h: 300},
 
-    // コーナー4：右へ曲がる（S字構造）
+    // コーナー4（右へ）
     {x: 200, y: 540, w: 500, h: 10},
     {x: 270, y: 470, w: 510, h: 10},
 
-    // コーナー5：下へ曲がる
+    // コーナー5（下へ）
     {x: 770, y: 470, w: 10, h: 350},
     {x: 690, y: 540, w: 10, h: 350},
 
-    // コーナー6：左へ曲がる（ラスト前の直線）
+    // コーナー6（左へ）
     {x: 100, y: 810, w: 600, h: 10},
     {x: 170, y: 880, w: 610, h: 10},
 
-    // コーナー7：下へ曲がりゴールへ
+    // コーナー7（下〜ゴールへ）
     {x: 100, y: 810, w: 10, h: 850},
     {x: 170, y: 880, w: 10, h: 710},
     {x: 10, y: 1720, w: 170, h: 10},
@@ -120,20 +130,13 @@ const walls = [
     {x: 10, y: 1580, w: 100, h: 10}
 ];
 
-// --- 動く黄色のバー（順番にスピードが段階的に加速する設定） ---
+// --- 動く障害物（徐々にスピードアップ） ---
 const movingObstacles = [
-    // 序盤（ゆっくり：速度 1.2）
     {x: 715, y: 110, w: 55, h: 8, baseSpeed: 1.2, dirX: 1, dirY: 0, minX: 715, maxX: 775, minY: 0, maxY: 0},
-    
-    // 中盤前半（やや速い：速度 2.2）
     {x: 300, y: 195, w: 8, h: 45, baseSpeed: 2.2, dirX: 0, dirY: 1, minX: 0, maxX: 0, minY: 195, maxY: 240},
     {x: 215, y: 300, w: 45, h: 8, baseSpeed: 2.5, dirX: 1, dirY: 0, minX: 215, maxX: 265, minY: 0, maxY: 0},
-
-    // 中盤後半（速い：速度 3.5）
     {x: 350, y: 485, w: 8, h: 45, baseSpeed: 3.5, dirX: 0, dirY: 1, minX: 0, maxX: 0, minY: 485, maxY: 530},
     {x: 705, y: 600, w: 55, h: 8, baseSpeed: 3.8, dirX: 1, dirY: 0, minX: 705, maxX: 765, minY: 0, maxY: 0},
-
-    // 終盤（超高速：速度 5.0）
     {x: 300, y: 825, w: 10, h: 45, baseSpeed: 5.0, dirX: 0, dirY: 1, minX: 0, maxX: 0, minY: 825, maxY: 870},
     {x: 105, y: 1200, w: 55, h: 8, baseSpeed: 5.5, dirX: 1, dirY: 0, minX: 105, maxX: 165, minY: 0, maxY: 0}
 ];
@@ -162,7 +165,7 @@ function update() {
             }
         }
 
-        // 動くお邪魔判定（スピード適用）
+        // 動く障害物判定
         for (let obs of movingObstacles) {
             if (obs.dirX !== 0) {
                 obs.x += obs.baseSpeed * obs.dirX;
