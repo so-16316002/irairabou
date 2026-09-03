@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>地獄の極細イライラ棒</title>
+    <title>極細イライラ棒 - 調整版</title>
     <style>
         body {
             background-color: #05050a;
@@ -40,8 +40,8 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const deathDisplay = document.getElementById('death-count');
 
-// --- 鬼畜パラメータ調整 ---
-const EASING = 0.035;        // 慣性を超絶強化（濡れた氷の上レベルの滑り）
+// --- パラメータ調整 ---
+const EASING = 0.045;       // 慣性をわずかに扱いやすく調整
 const PLAYER_RADIUS = 2;    // 自機サイズ（直径4px）
 
 let mouseX = 35, mouseY = 35;
@@ -54,7 +54,7 @@ let gameState = 'START';
 const startZone = {x: 15, y: 15, w: 40, h: 40};
 const goalZone = {x: 745, y: 545, w: 40, h: 40};
 
-// 直線壁（クリア隙間が約5px〜8pxになるよう設計）
+// 直線壁
 const walls = [
     // 外枠
     {x: 0, y: 0, w: 800, h: 10},
@@ -62,63 +62,69 @@ const walls = [
     {x: 0, y: 0, w: 10, h: 600},
     {x: 790, y: 0, w: 10, h: 600},
 
-    // 区画1: 極狭クランク (クリア幅約5px)
-    {x: 10, y: 60, w: 720, h: 10},
+    // 区画1: 最初の道（上下移動障害物を配置するため少しスペースを調整）
+    {x: 10, y: 65, w: 720, h: 10},
     {x: 60, y: 10, w: 10, h: 40},
 
     // 折り返し1
-    {x: 70, y: 78, w: 720, h: 10},
-    {x: 10, y: 96, w: 720, h: 10},
+    {x: 70, y: 83, w: 720, h: 10},
+    {x: 10, y: 101, w: 720, h: 10},
 
-    // 縦のジグザグ地帯（壁を増量）
-    {x: 100, y: 115, w: 10, h: 220},
-    {x: 160, y: 150, w: 10, h: 220},
-    {x: 220, y: 115, w: 10, h: 220},
-    {x: 280, y: 150, w: 10, h: 220},
-    {x: 340, y: 115, w: 10, h: 220},
-    {x: 400, y: 150, w: 10, h: 220},
-    {x: 460, y: 115, w: 10, h: 220},
+    // 縦のジグザグ地帯
+    {x: 100, y: 120, w: 10, h: 220},
+    {x: 160, y: 155, w: 10, h: 220},
+    {x: 220, y: 120, w: 10, h: 220},
+    {x: 280, y: 155, w: 10, h: 220},
+    {x: 340, y: 120, w: 10, h: 220},
+    {x: 400, y: 155, w: 10, h: 220},
+    {x: 460, y: 120, w: 10, h: 220},
 
     // 中盤横ライン
-    {x: 10, y: 380, w: 730, h: 10},
-    {x: 60, y: 398, w: 730, h: 10},
+    {x: 10, y: 385, w: 730, h: 10},
+    {x: 60, y: 403, w: 730, h: 10},
 
     // 終盤の格子迷路
-    {x: 150, y: 418, w: 10, h: 120},
-    {x: 250, y: 460, w: 10, h: 120},
-    {x: 350, y: 418, w: 10, h: 120},
-    {x: 450, y: 460, w: 10, h: 120},
-    {x: 550, y: 418, w: 10, h: 120},
-    {x: 650, y: 460, w: 10, h: 120},
+    {x: 150, y: 423, w: 10, h: 115},
+    {x: 250, y: 465, w: 10, h: 115},
+    {x: 350, y: 423, w: 10, h: 115},
+    {x: 450, y: 465, w: 10, h: 115},
+    {x: 550, y: 423, w: 10, h: 115},
+    {x: 650, y: 465, w: 10, h: 115},
 
-    {x: 10, y: 535, w: 720, h: 10}
+    {x: 10, y: 538, w: 720, h: 10}
 ];
 
-// 曲線（円形）の障害物・壁
+// 曲線（円形）壁
 const arcWalls = [
-    // 曲線コーナー（S字カーブの壁）
     {cx: 550, cy: 200, r: 40, startAngle: 0, endAngle: Math.PI * 1.5, thickness: 10},
     {cx: 650, cy: 280, r: 50, startAngle: Math.PI * 0.5, endAngle: Math.PI * 2, thickness: 10},
     {cx: 550, cy: 340, r: 35, startAngle: 0, endAngle: Math.PI, thickness: 10},
-
-    // 終盤のドーナツ型・曲線の難所
     {cx: 710, cy: 470, r: 30, startAngle: 0, endAngle: Math.PI * 2, thickness: 8}
 ];
 
-// 隙間なく大量に迫る動くお邪魔壁
+// 動くお邪魔壁（速度を少し緩め、最初の道にも上下に動く棒を追加）
 const movingObstacles = [
-    {x: 100, y: 69, w: 10, h: 8, vx: 5, minX: 70, maxX: 720},
-    {x: 600, y: 89, w: 10, h: 6, vx: -6, minX: 10, maxX: 720},
-    // ジグザグ地帯の上下運動壁
-    {x: 125, y: 120, w: 20, h: 8, vy: 4, minY: 115, maxY: 370},
-    {x: 185, y: 350, w: 20, h: 8, vy: -5, minY: 115, maxY: 370},
-    {x: 245, y: 120, w: 20, h: 8, vy: 6, minY: 115, maxY: 370},
-    {x: 305, y: 350, w: 20, h: 8, vy: -4, minY: 115, maxY: 370},
-    {x: 365, y: 120, w: 20, h: 8, vy: 7, minY: 115, maxY: 370},
-    {x: 425, y: 350, w: 20, h: 8, vy: -6, minY: 115, maxY: 370},
-    // 高速横切り壁
-    {x: 10, y: 389, w: 30, h: 8, vx: 9, minX: 10, maxX: 730},
-    {x: 500, y: 546, w: 40, h: 8, vx: -8, minX: 10, maxX: 720}
+    // 【追加】最初の直線道に配置した上下移動する棒
+    {x: 150, y: 15, w: 6, h: 25, vy: 2.5, minY: 11, maxY: 39},
+    {x: 300, y: 35, w: 6, h: 25, vy: -2.5, minY: 11, maxY: 39},
+    {x: 450, y: 15, w: 6, h: 25, vy: 3.0, minY: 11, maxY: 39},
+    {x: 600, y: 35, w: 6, h: 25, vy: -3.0, minY: 11, maxY: 39},
+
+    // 既存のお邪魔壁（スピードを少し緩和：例 5 -> 3.5 など）
+    {x: 100, y: 72, w: 8, h: 8, vx: 3.5, minX: 70, maxX: 720},
+    {x: 600, y: 91, w: 8, h: 6, vx: -4.0, minX: 10, maxX: 720},
+
+    // ジグザグ地帯の上下運動壁（少し速度を落として通過タイミングを調整）
+    {x: 125, y: 125, w: 18, h: 6, vy: 2.5, minY: 120, maxY: 375},
+    {x: 185, y: 350, w: 18, h: 6, vy: -3.0, minY: 120, maxY: 375},
+    {x: 245, y: 125, w: 18, h: 6, vy: 3.5, minY: 120, maxY: 375},
+    {x: 305, y: 350, w: 18, h: 6, vy: -2.5, minY: 120, maxY: 375},
+    {x: 365, y: 125, w: 18, h: 6, vy: 4.0, minY: 120, maxY: 375},
+    {x: 425, y: 350, w: 18, h: 6, vy: -3.5, minY: 120, maxY: 375},
+
+    // 横切り壁
+    {x: 10, y: 393, w: 25, h: 8, vx: 5.0, minX: 10, maxX: 730},
+    {x: 500, y: 548, w: 30, h: 8, vx: -4.5, minX: 10, maxX: 720}
 ];
 
 canvas.addEventListener('mousemove', (e) => {
@@ -142,7 +148,6 @@ canvas.addEventListener('mousedown', () => {
     }
 });
 
-// 矩形と円の判定
 function checkCollisionRect(circleX, circleY, radius, rect) {
     let closestX = Math.max(rect.x, Math.min(circleX, rect.x + rect.w));
     let closestY = Math.max(rect.y, Math.min(circleY, rect.y + rect.h));
@@ -151,13 +156,11 @@ function checkCollisionRect(circleX, circleY, radius, rect) {
     return (distanceX * distanceX + distanceY * distanceY) < (radius * radius);
 }
 
-// 曲線（円弧）との判定
 function checkCollisionArc(px, py, pr, arc) {
     let dx = px - arc.cx;
     let dy = py - arc.cy;
     let dist = Math.sqrt(dx * dx + dy * dy);
     
-    // 半径方向の接触判定
     if (dist >= (arc.r - arc.thickness/2 - pr) && dist <= (arc.r + arc.thickness/2 + pr)) {
         let angle = Math.atan2(dy, dx);
         if (angle < 0) angle += Math.PI * 2;
@@ -176,11 +179,9 @@ function checkCollisionArc(px, py, pr, arc) {
 
 function update() {
     if (gameState === 'PLAYING') {
-        // 慣性を極限まで高める（超・追従遅れ）
         playerX += (mouseX - playerX) * EASING;
         playerY += (mouseY - playerY) * EASING;
 
-        // 動く障害物の更新
         movingObstacles.forEach(obs => {
             if (obs.vy) {
                 obs.y += obs.vy;
@@ -197,7 +198,6 @@ function update() {
             }
         });
 
-        // 四角い壁判定
         for (let wall of walls) {
             if (checkCollisionRect(playerX, playerY, PLAYER_RADIUS, wall)) {
                 gameState = 'GAMEOVER';
@@ -206,7 +206,6 @@ function update() {
             }
         }
 
-        // 曲線壁判定
         for (let arc of arcWalls) {
             if (checkCollisionArc(playerX, playerY, PLAYER_RADIUS, arc)) {
                 gameState = 'GAMEOVER';
@@ -215,7 +214,6 @@ function update() {
             }
         }
 
-        // ゴール判定
         if (checkCollisionRect(playerX, playerY, PLAYER_RADIUS, goalZone)) {
             gameState = 'CLEAR';
         }
@@ -223,10 +221,8 @@ function update() {
 
     deathDisplay.textContent = deathCount;
 
-    // 描画
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // スタート＆ゴール
     ctx.strokeStyle = '#00ffcc';
     ctx.lineWidth = 2;
     ctx.strokeRect(startZone.x, startZone.y, startZone.w, startZone.h);
@@ -234,11 +230,9 @@ function update() {
     ctx.fillStyle = '#ff00ff';
     ctx.fillRect(goalZone.x, goalZone.y, goalZone.w, goalZone.h);
 
-    // 直線壁（赤）
     ctx.fillStyle = '#ff0055';
     walls.forEach(wall => ctx.fillRect(wall.x, wall.y, wall.w, wall.h));
 
-    // 曲線壁（赤）
     ctx.strokeStyle = '#ff0055';
     arcWalls.forEach(arc => {
         ctx.beginPath();
@@ -247,17 +241,16 @@ function update() {
         ctx.stroke();
     });
 
-    // 大量のお邪魔障害物（黄）
+    // お邪魔障害物（黄）
     ctx.fillStyle = '#ffee00';
     movingObstacles.forEach(obs => ctx.fillRect(obs.x, obs.y, obs.w, obs.h));
 
-    // 自機（極小の緑点）
+    // 自機
     ctx.fillStyle = '#00ffcc';
     ctx.beginPath();
     ctx.arc(playerX, playerY, PLAYER_RADIUS, 0, Math.PI * 2);
     ctx.fill();
 
-    // オーバーレイ
     ctx.fillStyle = '#ffffff';
     ctx.font = '22px sans-serif';
     ctx.textAlign = 'center';
@@ -266,17 +259,17 @@ function update() {
         ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = '#ff0055';
-        ctx.fillText('緑枠をクリックして絶望へ', canvas.width / 2, canvas.height / 2);
+        ctx.fillText('緑枠をクリックしてスタート', canvas.width / 2, canvas.height / 2);
     } else if (gameState === 'GAMEOVER') {
         ctx.fillStyle = 'rgba(150, 0, 0, 0.75)';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = '#ffffff';
-        ctx.fillText('即死 - クリックして再挑戦', canvas.width / 2, canvas.height / 2);
+        ctx.fillText('DEATH - クリックして再挑戦', canvas.width / 2, canvas.height / 2);
     } else if (gameState === 'CLEAR') {
         ctx.fillStyle = 'rgba(0, 200, 100, 0.85)';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = '#ffffff';
-        ctx.fillText('人間卒業！クリアおめでとう！', canvas.width / 2, canvas.height / 2);
+        ctx.fillText('CLEAR! お見事！', canvas.width / 2, canvas.height / 2);
     }
 
     requestAnimationFrame(update);
