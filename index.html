@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>近距離カメラ・キーボード操作型イライラ棒</title>
+    <title>近距離カメラ・1本道イライラ棒（調整版）</title>
     <style>
         body {
             background-color: #05050a;
@@ -40,8 +40,8 @@ const ctx = canvas.getContext('2d');
 const deathDisplay = document.getElementById('death-count');
 
 // --- 設定パラメータ ---
-const ZOOM = 2.2;           // カメラのズーム倍率（数値を大きくすると近く表示）
-const PLAYER_SPEED = 2.8;   // プレイヤーの移動速度
+const ZOOM = 2.2;           // カメラ倍率
+const PLAYER_SPEED = 2.8;   // 移動速度
 const PLAYER_RADIUS = 3;    // 自機サイズ
 
 let playerX = 40, playerY = 40;
@@ -74,31 +74,32 @@ function resetGame() {
 const startZone = {x: 10, y: 10, w: 60, h: 60};
 const goalZone = {x: 200, y: 1650, w: 60, h: 60};
 
-// --- 分岐なし1本道の外壁 ---
+// --- 分岐なし1本道の外壁（スタート下の抜け道を完全に封鎖） ---
 const walls = [
-    // スタート部屋
-    {x: 0, y: 0, w: 80, h: 10}, {x: 0, y: 0, w: 10, h: 80}, {x: 0, y: 70, w: 10, h: 10},
+    // スタート部屋（下側を完全ブロック）
+    {x: 0, y: 0, w: 80, h: 10}, 
+    {x: 0, y: 0, w: 10, h: 80}, 
+    {x: 0, y: 70, w: 80, h: 10}, // スタート下の道を完全に塞ぐ壁
 
-    // 1. 手書きイラスト再現ゾーン（横移動）
+    // 1. 手書きイラスト再現ゾーン（右へ進むコース）
     {x: 70, y: 0, w: 740, h: 10},
-    {x: 70, y: 70, w: 730, h: 10},
     // 上下の固定突起
     {x: 150, y: 10, w: 5, h: 40}, {x: 270, y: 10, w: 5, h: 45}, {x: 390, y: 10, w: 5, h: 40}, {x: 510, y: 10, w: 5, h: 45},
     {x: 210, y: 30, w: 5, h: 40}, {x: 330, y: 25, w: 5, h: 45}, {x: 450, y: 30, w: 5, h: 40}, {x: 570, y: 25, w: 5, h: 45},
 
-    // 2. 垂直落下 ＋ プレス機ゾーン
+    // 2. 垂直落下ゾーン
     {x: 800, y: 0, w: 10, h: 400},
     {x: 730, y: 70, w: 10, h: 260},
 
-    // 3. クランク＆回転プロペラゾーン
+    // 3. クランク＆回転プロペラゾーン（左へ進むコース）
     {x: 100, y: 320, w: 640, h: 10},
     {x: 170, y: 390, w: 640, h: 10},
 
-    // 4. 左下降＆トゲ伸縮ゾーン
+    // 4. 左下降ゾーン
     {x: 100, y: 320, w: 10, h: 300},
     {x: 170, y: 390, w: 10, h: 170},
 
-    // 5. ロングスライドバーゾーン（右移動）
+    // 5. ロングスライドバーゾーン（右へ進むコース）
     {x: 100, y: 610, w: 700, h: 10},
     {x: 170, y: 550, w: 560, h: 10},
 
@@ -106,7 +107,7 @@ const walls = [
     {x: 790, y: 610, w: 10, h: 400},
     {x: 720, y: 550, w: 10, h: 400},
 
-    // 7. 高速往復バーゾーン（左移動）
+    // 7. 高速往復バーゾーン（左へ進むコース）
     {x: 200, y: 1000, w: 600, h: 10},
     {x: 260, y: 940, w: 470, h: 10},
 
@@ -116,34 +117,34 @@ const walls = [
     {x: 200, y: 1710, w: 70, h: 10}
 ];
 
-// --- 移動・伸縮・スライド障害物 ---
+// --- 移動・スライド障害物（詰まないようにサイズと可動域を最適化） ---
 const movingObstacles = [
-    // 垂直落下の往復壁
-    {x: 735, y: 120, w: 60, h: 8, vx: -2.0, vy: 0, minX: 735, maxX: 795},
-    {x: 735, y: 220, w: 60, h: 8, vx: 2.0, vy: 0, minX: 735, maxX: 795},
+    // 垂直落下の往復壁（通り抜け可能な隙間を確保）
+    {x: 735, y: 120, w: 40, h: 8, vx: -2.0, vy: 0, minX: 735, maxX: 795},
+    {x: 755, y: 220, w: 40, h: 8, vx: 2.0, vy: 0, minX: 735, maxX: 795},
 
-    // ロングストレートの縦スライドバー
-    {x: 200, y: 560, w: 12, h: 45, vx: 3.5, vy: 0, minX: 180, maxX: 710},
-    {x: 600, y: 560, w: 12, h: 45, vx: -3.5, vy: 0, minX: 180, maxX: 710},
+    // ロングストレートの縦スライドバー（完全遮断しない高さに変更）
+    {x: 200, y: 560, w: 8, h: 32, vx: 3.5, vy: 0, minX: 180, maxX: 710},
+    {x: 600, y: 560, w: 8, h: 32, vx: -3.5, vy: 0, minX: 180, maxX: 710},
 
-    // 下降ゾーンのプレスブロック
-    {x: 725, y: 700, w: 60, h: 12, vx: 0, vy: 3, minY: 615, maxY: 935},
+    // 下降ゾーンのプレスブロック（上下に十分な退避スペースを用意）
+    {x: 725, y: 700, w: 60, h: 10, vx: 0, vy: 2.5, minY: 630, maxY: 920},
 
-    // ラスト前の高速スライド壁
-    {x: 300, y: 945, w: 10, h: 50, vx: 4, vy: 0, minX: 265, maxX: 715},
-    {x: 500, y: 945, w: 10, h: 50, vx: -4, vy: 0, minX: 265, maxX: 715},
+    // ラスト前のスライド壁
+    {x: 300, y: 945, w: 8, h: 38, vx: 3.5, vy: 0, minX: 265, maxX: 715},
+    {x: 500, y: 945, w: 8, h: 38, vx: -3.5, vy: 0, minX: 265, maxX: 715},
 
-    // ゴール手前の押しつぶしトラップ
-    {x: 205, y: 1200, w: 50, h: 10, vx: 0, vy: 2, minY: 1100, maxY: 1300},
-    {x: 205, y: 1450, w: 50, h: 10, vx: 0, vy: -2, minY: 1350, maxY: 1550}
+    // ゴール手前のトラップ
+    {x: 205, y: 1200, w: 40, h: 8, vx: 0, vy: 2, minY: 1100, maxY: 1280},
+    {x: 215, y: 1450, w: 40, h: 8, vx: 0, vy: -2, minY: 1370, maxY: 1550}
 ];
 
-// --- 回転プロペラ障害物 ---
+// --- 回転プロペラ障害物（半径をやや小さくして通過しやすく調整） ---
 const spinners = [
-    {cx: 450, cy: 355, length: 28, angle: 0, speed: 0.05},
-    {cx: 250, cy: 355, length: 28, angle: 0, speed: -0.06},
-    {cx: 135, cy: 480, length: 28, angle: 0, speed: 0.07},
-    {cx: 230, cy: 1600, length: 24, angle: 0, speed: 0.08}
+    {cx: 450, cy: 355, length: 22, angle: 0, speed: 0.05},
+    {cx: 250, cy: 355, length: 22, angle: 0, speed: -0.06},
+    {cx: 135, cy: 480, length: 22, angle: 0, speed: 0.07},
+    {cx: 230, cy: 1600, length: 20, angle: 0, speed: 0.08}
 ];
 
 function checkCollisionLine(px, py, radius, x1, y1, x2, y2) {
@@ -168,13 +169,12 @@ function checkCollisionRect(circleX, circleY, radius, rect) {
 
 function update() {
     if (gameState === 'PLAYING') {
-        // キーボード移動処理
         if (keys.ArrowUp) playerY -= PLAYER_SPEED;
         if (keys.ArrowDown) playerY += PLAYER_SPEED;
         if (keys.ArrowLeft) playerX -= PLAYER_SPEED;
         if (keys.ArrowRight) playerX += PLAYER_SPEED;
 
-        // 壁との当たり判定
+        // 壁判定
         for (let wall of walls) {
             if (checkCollisionRect(playerX, playerY, PLAYER_RADIUS, wall)) {
                 gameState = 'GAMEOVER';
@@ -183,7 +183,7 @@ function update() {
             }
         }
 
-        // 移動障害物の更新・判定
+        // 動くお邪魔判定
         for (let obs of movingObstacles) {
             if (obs.vx) {
                 obs.x += obs.vx;
@@ -223,11 +223,10 @@ function update() {
 
     deathDisplay.textContent = deathCount;
 
-    // --- 描画（近距離ズームカメラ） ---
+    // 描画（カメラ追従）
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     ctx.save();
-    // 画面中央に自機が来るようカメラを原点に移動し、ズーム倍率を適用
     ctx.translate(canvas.width / 2, canvas.height / 2);
     ctx.scale(ZOOM, ZOOM);
     ctx.translate(-playerX, -playerY);
@@ -240,7 +239,7 @@ function update() {
     ctx.fillStyle = '#ff00ff';
     ctx.fillRect(goalZone.x, goalZone.y, goalZone.w, goalZone.h);
 
-    // 壁（赤）
+    // 固定壁（赤）
     ctx.fillStyle = '#ff0055';
     walls.forEach(wall => ctx.fillRect(wall.x, wall.y, wall.w, wall.h));
 
@@ -266,7 +265,7 @@ function update() {
 
     ctx.restore();
 
-    // UIオーバーレイメッセージ
+    // UIメッセージ
     ctx.fillStyle = '#ffffff';
     ctx.font = '22px sans-serif';
     ctx.textAlign = 'center';
