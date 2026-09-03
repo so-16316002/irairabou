@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>極細イライラ棒 - 調整版</title>
+    <title>精密イライラ棒 - 手書きコース再現</title>
     <style>
         body {
             background-color: #05050a;
@@ -40,21 +40,21 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const deathDisplay = document.getElementById('death-count');
 
-// --- パラメータ調整 ---
-const EASING = 0.045;       // 慣性をわずかに扱いやすく調整
-const PLAYER_RADIUS = 2;    // 自機サイズ（直径4px）
+// --- パラメータ設定 ---
+const EASING = 0.045;       // 強い慣性（滑る操作感）
+const PLAYER_RADIUS = 2.5;  // 自機サイズ
 
-let mouseX = 35, mouseY = 35;
-let playerX = 35, playerY = 35;
+let mouseX = 40, mouseY = 40;
+let playerX = 40, playerY = 40;
 let deathCount = 0;
 
 let gameState = 'START';
 
 // スタート・ゴール
-const startZone = {x: 15, y: 15, w: 40, h: 40};
-const goalZone = {x: 745, y: 545, w: 40, h: 40};
+const startZone = {x: 15, y: 15, w: 50, h: 50};
+const goalZone = {x: 720, y: 520, w: 50, h: 50};
 
-// 直線壁
+// イラスト再現コース（上下から交互に突き出る壁）
 const walls = [
     // 外枠
     {x: 0, y: 0, w: 800, h: 10},
@@ -62,69 +62,45 @@ const walls = [
     {x: 0, y: 0, w: 10, h: 600},
     {x: 790, y: 0, w: 10, h: 600},
 
-    // 区画1: 最初の道（上下移動障害物を配置するため少しスペースを調整）
-    {x: 10, y: 65, w: 720, h: 10},
-    {x: 60, y: 10, w: 10, h: 40},
+    // --- メインコースの外壁（手書きの長い通路と右折） ---
+    // 上側の外壁
+    {x: 10, y: 10, w: 770, h: 5},
+    // 下側の外壁（スタート直後から右折まで）
+    {x: 10, y: 65, w: 715, h: 5},
+    // 右折したあとの右外壁
+    {x: 775, y: 10, w: 5, h: 580},
+    // 右折したあとの内側外壁
+    {x: 720, y: 65, w: 5, h: 460},
 
-    // 折り返し1
-    {x: 70, y: 83, w: 720, h: 10},
-    {x: 10, y: 101, w: 720, h: 10},
+    // --- 上下から交互に突き出る仕切り（イラスト再現部分） ---
+    // 上から下へ突き出る突起（奇数）
+    {x: 100, y: 15, w: 4, h: 32},
+    {x: 180, y: 15, w: 4, h: 35},
+    {x: 260, y: 15, w: 4, h: 32},
+    {x: 340, y: 15, w: 4, h: 38},
+    {x: 420, y: 15, w: 4, h: 30},
+    {x: 500, y: 15, w: 4, h: 35},
+    {x: 580, y: 15, w: 4, h: 32},
+    {x: 660, y: 15, w: 4, h: 36},
 
-    // 縦のジグザグ地帯
-    {x: 100, y: 120, w: 10, h: 220},
-    {x: 160, y: 155, w: 10, h: 220},
-    {x: 220, y: 120, w: 10, h: 220},
-    {x: 280, y: 155, w: 10, h: 220},
-    {x: 340, y: 120, w: 10, h: 220},
-    {x: 400, y: 155, w: 10, h: 220},
-    {x: 460, y: 120, w: 10, h: 220},
+    // 下から上へ突き出る突起（偶数）
+    {x: 140, y: 33, w: 4, h: 32},
+    {x: 220, y: 30, w: 4, h: 35},
+    {x: 300, y: 33, w: 4, h: 32},
+    {x: 380, y: 28, w: 4, h: 37},
+    {x: 460, y: 35, w: 4, h: 30},
+    {x: 540, y: 30, w: 4, h: 35},
+    {x: 620, y: 33, w: 4, h: 32},
+    {x: 700, y: 28, w: 4, h: 37},
 
-    // 中盤横ライン
-    {x: 10, y: 385, w: 730, h: 10},
-    {x: 60, y: 403, w: 730, h: 10},
-
-    // 終盤の格子迷路
-    {x: 150, y: 423, w: 10, h: 115},
-    {x: 250, y: 465, w: 10, h: 115},
-    {x: 350, y: 423, w: 10, h: 115},
-    {x: 450, y: 465, w: 10, h: 115},
-    {x: 550, y: 423, w: 10, h: 115},
-    {x: 650, y: 465, w: 10, h: 115},
-
-    {x: 10, y: 538, w: 720, h: 10}
-];
-
-// 曲線（円形）壁
-const arcWalls = [
-    {cx: 550, cy: 200, r: 40, startAngle: 0, endAngle: Math.PI * 1.5, thickness: 10},
-    {cx: 650, cy: 280, r: 50, startAngle: Math.PI * 0.5, endAngle: Math.PI * 2, thickness: 10},
-    {cx: 550, cy: 340, r: 35, startAngle: 0, endAngle: Math.PI, thickness: 10},
-    {cx: 710, cy: 470, r: 30, startAngle: 0, endAngle: Math.PI * 2, thickness: 8}
-];
-
-// 動くお邪魔壁（速度を少し緩め、最初の道にも上下に動く棒を追加）
-const movingObstacles = [
-    // 【追加】最初の直線道に配置した上下移動する棒
-    {x: 150, y: 15, w: 6, h: 25, vy: 2.5, minY: 11, maxY: 39},
-    {x: 300, y: 35, w: 6, h: 25, vy: -2.5, minY: 11, maxY: 39},
-    {x: 450, y: 15, w: 6, h: 25, vy: 3.0, minY: 11, maxY: 39},
-    {x: 600, y: 35, w: 6, h: 25, vy: -3.0, minY: 11, maxY: 39},
-
-    // 既存のお邪魔壁（スピードを少し緩和：例 5 -> 3.5 など）
-    {x: 100, y: 72, w: 8, h: 8, vx: 3.5, minX: 70, maxX: 720},
-    {x: 600, y: 91, w: 8, h: 6, vx: -4.0, minX: 10, maxX: 720},
-
-    // ジグザグ地帯の上下運動壁（少し速度を落として通過タイミングを調整）
-    {x: 125, y: 125, w: 18, h: 6, vy: 2.5, minY: 120, maxY: 375},
-    {x: 185, y: 350, w: 18, h: 6, vy: -3.0, minY: 120, maxY: 375},
-    {x: 245, y: 125, w: 18, h: 6, vy: 3.5, minY: 120, maxY: 375},
-    {x: 305, y: 350, w: 18, h: 6, vy: -2.5, minY: 120, maxY: 375},
-    {x: 365, y: 125, w: 18, h: 6, vy: 4.0, minY: 120, maxY: 375},
-    {x: 425, y: 350, w: 18, h: 6, vy: -3.5, minY: 120, maxY: 375},
-
-    // 横切り壁
-    {x: 10, y: 393, w: 25, h: 8, vx: 5.0, minX: 10, maxX: 730},
-    {x: 500, y: 548, w: 30, h: 8, vx: -4.5, minX: 10, maxX: 720}
+    // --- 右折後の縦コース仕切り（左右交互） ---
+    {x: 725, y: 120, w: 32, h: 4},
+    {x: 743, y: 180, w: 32, h: 4},
+    {x: 725, y: 240, w: 32, h: 4},
+    {x: 743, y: 300, w: 32, h: 4},
+    {x: 725, y: 360, w: 32, h: 4},
+    {x: 743, y: 420, w: 32, h: 4},
+    {x: 725, y: 480, w: 32, h: 4}
 ];
 
 canvas.addEventListener('mousemove', (e) => {
@@ -156,48 +132,12 @@ function checkCollisionRect(circleX, circleY, radius, rect) {
     return (distanceX * distanceX + distanceY * distanceY) < (radius * radius);
 }
 
-function checkCollisionArc(px, py, pr, arc) {
-    let dx = px - arc.cx;
-    let dy = py - arc.cy;
-    let dist = Math.sqrt(dx * dx + dy * dy);
-    
-    if (dist >= (arc.r - arc.thickness/2 - pr) && dist <= (arc.r + arc.thickness/2 + pr)) {
-        let angle = Math.atan2(dy, dx);
-        if (angle < 0) angle += Math.PI * 2;
-        
-        let start = arc.startAngle;
-        let end = arc.endAngle;
-        
-        if (start <= end) {
-            if (angle >= start && angle <= end) return true;
-        } else {
-            if (angle >= start || angle <= end) return true;
-        }
-    }
-    return false;
-}
-
 function update() {
     if (gameState === 'PLAYING') {
         playerX += (mouseX - playerX) * EASING;
         playerY += (mouseY - playerY) * EASING;
 
-        movingObstacles.forEach(obs => {
-            if (obs.vy) {
-                obs.y += obs.vy;
-                if (obs.y < obs.minY || obs.y + obs.h > obs.maxY) obs.vy *= -1;
-            }
-            if (obs.vx) {
-                obs.x += obs.vx;
-                if (obs.x < obs.minX || obs.x + obs.w > obs.maxX) obs.vx *= -1;
-            }
-
-            if (checkCollisionRect(playerX, playerY, PLAYER_RADIUS, obs)) {
-                gameState = 'GAMEOVER';
-                deathCount++;
-            }
-        });
-
+        // 壁との当たり判定
         for (let wall of walls) {
             if (checkCollisionRect(playerX, playerY, PLAYER_RADIUS, wall)) {
                 gameState = 'GAMEOVER';
@@ -206,14 +146,7 @@ function update() {
             }
         }
 
-        for (let arc of arcWalls) {
-            if (checkCollisionArc(playerX, playerY, PLAYER_RADIUS, arc)) {
-                gameState = 'GAMEOVER';
-                deathCount++;
-                break;
-            }
-        }
-
+        // ゴール判定
         if (checkCollisionRect(playerX, playerY, PLAYER_RADIUS, goalZone)) {
             gameState = 'CLEAR';
         }
@@ -221,8 +154,10 @@ function update() {
 
     deathDisplay.textContent = deathCount;
 
+    // 描画
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    // スタート＆ゴール
     ctx.strokeStyle = '#00ffcc';
     ctx.lineWidth = 2;
     ctx.strokeRect(startZone.x, startZone.y, startZone.w, startZone.h);
@@ -230,27 +165,17 @@ function update() {
     ctx.fillStyle = '#ff00ff';
     ctx.fillRect(goalZone.x, goalZone.y, goalZone.w, goalZone.h);
 
+    // 壁（赤）
     ctx.fillStyle = '#ff0055';
     walls.forEach(wall => ctx.fillRect(wall.x, wall.y, wall.w, wall.h));
 
-    ctx.strokeStyle = '#ff0055';
-    arcWalls.forEach(arc => {
-        ctx.beginPath();
-        ctx.arc(arc.cx, arc.cy, arc.r, arc.startAngle, arc.endAngle);
-        ctx.lineWidth = arc.thickness;
-        ctx.stroke();
-    });
-
-    // お邪魔障害物（黄）
-    ctx.fillStyle = '#ffee00';
-    movingObstacles.forEach(obs => ctx.fillRect(obs.x, obs.y, obs.w, obs.h));
-
-    // 自機
+    // 自機（緑）
     ctx.fillStyle = '#00ffcc';
     ctx.beginPath();
     ctx.arc(playerX, playerY, PLAYER_RADIUS, 0, Math.PI * 2);
     ctx.fill();
 
+    // UIテキスト
     ctx.fillStyle = '#ffffff';
     ctx.font = '22px sans-serif';
     ctx.textAlign = 'center';
@@ -258,13 +183,13 @@ function update() {
     if (gameState === 'START') {
         ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = '#ff0055';
-        ctx.fillText('緑枠をクリックしてスタート', canvas.width / 2, canvas.height / 2);
+        ctx.fillStyle = '#00ffcc';
+        ctx.fillText('スタート枠をクリック', canvas.width / 2, canvas.height / 2);
     } else if (gameState === 'GAMEOVER') {
         ctx.fillStyle = 'rgba(150, 0, 0, 0.75)';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = '#ffffff';
-        ctx.fillText('DEATH - クリックして再挑戦', canvas.width / 2, canvas.height / 2);
+        ctx.fillText('DEATH - クリックでやり直し', canvas.width / 2, canvas.height / 2);
     } else if (gameState === 'CLEAR') {
         ctx.fillStyle = 'rgba(0, 200, 100, 0.85)';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
