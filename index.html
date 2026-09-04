@@ -2,124 +2,193 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>激難アクションゲーム</title>
+    <title>極・激難アクションゲーム</title>
     <style>
         body {
-            background-color: #222;
+            background-color: #1a1a1a;
             color: #fff;
             text-align: center;
             font-family: sans-serif;
         }
         canvas {
-            background-color: #eee;
+            background-color: #2a2a2a;
             border: 4px solid #fff;
             display: block;
             margin: 20px auto;
+        }
+        .info {
+            font-size: 1.2rem;
+            margin-bottom: 10px;
         }
     </style>
 </head>
 <body>
 
-    <h1>激難アクションゲーム</h1>
-    <p>矢印キーまたはWASDキーで操作して、青い玉を避けて緑のゾーンを目指そう！</p>
-    <p>ミス回数: <span id="deathCount">0</span></p>
+    <h1>極・激難アクションゲーム</h1>
+    <p>すべての黄色のコインを集めてから、緑のゴールを目指せ！</p>
+    <div class="info">
+        ミス回数: <span id="deathCount">0</span> | 
+        コイン: <span id="coinCount">0</span> / <span id="totalCoins">0</span>
+    </div>
 
-    <canvas id="gameCanvas" width="600" height="300"></canvas>
+    <canvas id="gameCanvas" width="700" height="400"></canvas>
 
     <script>
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
         const deathCountElement = document.getElementById("deathCount");
+        const coinCountElement = document.getElementById("coinCount");
+        const totalCoinsElement = document.getElementById("totalCoins");
 
         let deaths = 0;
+        let collectedCoins = 0;
 
-        // プレイヤーオブジェクト
+        // プレイヤー
         const player = {
-            x: 50,
-            y: 135,
-            size: 20,
-            speed: 3
+            x: 40,
+            y: 185,
+            size: 16,
+            speed: 2.5
         };
 
-        // スタートとゴールの領域
-        const startZone = { x: 0, y: 0, width: 100, height: 300 };
-        const goalZone = { x: 500, y: 0, width: 100, height: 300 };
+        // 安全地帯・ゴール
+        const startZone = { x: 0, y: 150, width: 80, height: 100 };
+        const goalZone = { x: 620, y: 150, width: 80, height: 100 };
 
-        // 障害物（青い玉）の配列
-        const enemies = [
-            { x: 150, y: 20, radius: 10, speedY: 4 },
-            { x: 220, y: 280, radius: 10, speedY: -4 },
-            { x: 290, y: 20, radius: 10, speedY: 5 },
-            { x: 360, y: 280, radius: 10, speedY: -5 },
-            { x: 430, y: 20, radius: 10, speedY: 6 }
+        // コイン（回収必須アイテム）
+        const coins = [
+            { x: 200, y: 60, radius: 8, collected: false },
+            { x: 350, y: 200, radius: 8, collected: false },
+            { x: 500, y: 340, radius: 8, collected: false }
         ];
 
-        // キー入力の状態管理
-        const keys = {};
+        totalCoinsElement.textContent = coins.length;
 
+        // 障害物（青い玉）
+        const enemies = [
+            // 上下移動（高速）
+            { x: 120, y: 20, radius: 9, speedX: 0, speedY: 7 },
+            { x: 160, y: 380, radius: 9, speedX: 0, speedY: -7 },
+            { x: 240, y: 20, radius: 9, speedX: 0, speedY: 8 },
+            { x: 280, y: 380, radius: 9, speedX: 0, speedY: -8 },
+
+            // 左右移動（狭い通路の圧迫）
+            { x: 320, y: 120, radius: 9, speedX: 6, speedY: 0, minX: 320, maxX: 480 },
+            { x: 480, y: 280, radius: 9, speedX: -6, speedY: 0, minX: 320, maxX: 480 },
+
+            // 回転風のクロス移動
+            { x: 540, y: 50, radius: 9, speedX: 0, speedY: 9 },
+            { x: 580, y: 350, radius: 9, speedX: 0, speedY: -9 }
+        ];
+
+        const keys = {};
         window.addEventListener("keydown", (e) => keys[e.key] = true);
         window.addEventListener("keyup", (e) => keys[e.key] = false);
 
-        // リセット処理
-        function resetPlayer() {
-            player.x = 50;
-            player.y = 135;
+        function resetGame() {
+            player.x = 40;
+            player.y = 185;
+            collectedCoins = 0;
+            coins.forEach(c => c.collected = false);
+            coinCountElement.textContent = collectedCoins;
         }
 
-        // 更新処理
         function update() {
-            // 移動処理
+            // 移動
             if ((keys["ArrowUp"] || keys["w"]) && player.y > 0) player.y -= player.speed;
             if ((keys["ArrowDown"] || keys["s"]) && player.y + player.size < canvas.height) player.y += player.speed;
             if ((keys["ArrowLeft"] || keys["a"]) && player.x > 0) player.x -= player.speed;
             if ((keys["ArrowRight"] || keys["d"]) && player.x + player.size < canvas.width) player.x += player.speed;
 
-            // 障害物の移動と壁反射
+            // 障害物の挙動
             enemies.forEach(enemy => {
+                enemy.x += enemy.speedX;
                 enemy.y += enemy.speedY;
-                if (enemy.y - enemy.radius < 0 || enemy.y + enemy.radius > canvas.height) {
-                    enemy.speedY *= -1;
+
+                // 壁での反射（上下）
+                if (enemy.speedY !== 0) {
+                    if (enemy.y - enemy.radius < 0 || enemy.y + enemy.radius > canvas.height) {
+                        enemy.speedY *= -1;
+                    }
                 }
 
-                // 衝突判定（四角形と円）
+                // 範囲での反射（左右）
+                if (enemy.speedX !== 0) {
+                    if (enemy.x - enemy.radius < enemy.minX || enemy.x + enemy.radius > enemy.maxX) {
+                        enemy.speedX *= -1;
+                    }
+                }
+
+                // プレイヤーとの衝突判定
                 const closestX = Math.max(player.x, Math.min(player.x + player.size, enemy.x));
                 const closestY = Math.max(player.y, Math.min(player.y + player.size, enemy.y));
-                const distanceX = enemy.x - closestX;
-                const distanceY = enemy.y - closestY;
-                const distance = Math.sqrt((distanceX * distanceX) + (distanceY * distanceY));
+                const dist = Math.hypot(enemy.x - closestX, enemy.y - closestY);
 
-                if (distance < enemy.radius) {
+                if (dist < enemy.radius) {
                     deaths++;
                     deathCountElement.textContent = deaths;
-                    resetPlayer();
+                    resetGame();
                 }
             });
 
-            // ゴール判定
-            if (player.x + player.size > goalZone.x) {
-                alert(`クリアおめでとうございます！\nミス回数: ${deaths} 回`);
-                deaths = 0;
-                deathCountElement.textContent = deaths;
-                resetPlayer();
+            // コイン獲得判定
+            coins.forEach(coin => {
+                if (!coin.collected) {
+                    const closestX = Math.max(player.x, Math.min(player.x + player.size, coin.x));
+                    const closestY = Math.max(player.y, Math.min(player.y + player.size, coin.y));
+                    if (Math.hypot(coin.x - closestX, coin.y - closestY) < coin.radius) {
+                        coin.collected = true;
+                        collectedCoins++;
+                        coinCountElement.textContent = collectedCoins;
+                    }
+                }
+            });
+
+            // ゴール判定（全コイン取得が必要）
+            if (player.x + player.size > goalZone.x && player.y > goalZone.y && player.y < goalZone.y + goalZone.height) {
+                if (collectedCoins === coins.length) {
+                    alert(`クリア！\nミス回数: ${deaths} 回`);
+                    deaths = 0;
+                    deathCountElement.textContent = deaths;
+                    resetGame();
+                }
             }
         }
 
-        // 描画処理
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // 安全地帯（スタート）
-            ctx.fillStyle = "#a8ffb2";
-            ctx.fillRect(startZone.x, startZone.y, startZone.width, startZone.height);
+            // 市松模様の背景（原作風）
+            const tileSize = 40;
+            for (let r = 0; r < canvas.height / tileSize; r++) {
+                for (let c = 0; c < canvas.width / tileSize; c++) {
+                    ctx.fillStyle = (r + c) % 2 === 0 ? "#333" : "#282828";
+                    ctx.fillRect(c * tileSize, r * tileSize, tileSize, tileSize);
+                }
+            }
 
-            // ゴール地帯
-            ctx.fillStyle = "#a8ffb2";
+            // スタート＆ゴールゾーン
+            ctx.fillStyle = "#80ff80";
+            ctx.fillRect(startZone.x, startZone.y, startZone.width, startZone.height);
             ctx.fillRect(goalZone.x, goalZone.y, goalZone.width, goalZone.height);
 
+            // コイン描画
+            coins.forEach(coin => {
+                if (!coin.collected) {
+                    ctx.beginPath();
+                    ctx.arc(coin.x, coin.y, coin.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = "#ffe600";
+                    ctx.fill();
+                    ctx.strokeStyle = "#000";
+                    ctx.stroke();
+                }
+            });
+
             // プレイヤー描画
-            ctx.fillStyle = "#ff3333";
+            ctx.fillStyle = "#ff2222";
             ctx.fillRect(player.x, player.y, player.size, player.size);
             ctx.strokeStyle = "#000";
+            ctx.lineWidth = 2;
             ctx.strokeRect(player.x, player.y, player.size, player.size);
 
             // 障害物描画
@@ -130,11 +199,9 @@
                 ctx.fill();
                 ctx.strokeStyle = "#000";
                 ctx.stroke();
-                ctx.closePath();
             });
         }
 
-        // ゲームループ
         function loop() {
             update();
             draw();
