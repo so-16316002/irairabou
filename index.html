@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>イライラ棒（コース修正版）</title>
+    <title>オートラン・イライラ棒</title>
     <style>
         body {
             background-color: #05050a;
@@ -31,7 +31,7 @@
 </head>
 <body>
 
-<div id="info">DEATHS: <span id="death-count">0</span> | [矢印キー] 移動</div>
+<div id="info">DEATHS: <span id="death-count">0</span> | [↑/↓ キー] 上下移動</div>
 <canvas id="gameCanvas" width="800" height="600"></canvas>
 
 <script>
@@ -40,18 +40,19 @@ const ctx = canvas.getContext('2d');
 const deathDisplay = document.getElementById('death-count');
 
 // --- 基本設定 ---
-const ZOOM = 2.4;            // ズーム倍率
-const PLAYER_SPEED = 2.5;    // 移動速度
-const PLAYER_RADIUS = 3.5;   // 自機サイズ（直径7px）
+const ZOOM = 2.0;
+const AUTO_SPEED_X = 2.2;   // 自動で右に進む速度
+const PLAYER_SPEED_Y = 2.8; // 上下移動のスピード
+const PLAYER_RADIUS = 3.5;  // 自機サイズ
 
-let playerX = 50, playerY = 50;
+let playerX = 50, playerY = 45;
 let deathCount = 0;
 let gameState = 'START';
 
-const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
+const keys = { ArrowUp: false, ArrowDown: false };
 
 window.addEventListener('keydown', (e) => {
-    if (keys.hasOwnProperty(e.key)) {
+    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
         keys[e.key] = true;
         if (gameState === 'START' || gameState === 'GAMEOVER' || gameState === 'CLEAR') {
             resetGame();
@@ -66,77 +67,51 @@ window.addEventListener('keyup', (e) => {
 
 function resetGame() {
     playerX = 50;
-    playerY = 50;
+    playerY = 45;
 }
 
-// スタート・ゴール
-const startZone = {x: 20, y: 20, w: 60, h: 60};
-const goalZone = {x: 20, y: 1640, w: 80, h: 80};
+// スタート・ゴールエリア
+const startZone = {x: 20, y: 20, w: 60, h: 50};
+const goalZone = {x: 2400, y: 20, w: 60, h: 50};
 
-// --- 外壁データ（画像に合わせて開口部を修正） ---
+// --- 自動前進コース（前方の壁を避ける構造） ---
 const walls = [
-    // スタート部屋
-    {x: 10, y: 10, w: 80, h: 10},
-    {x: 10, y: 10, w: 10, h: 80},
-    {x: 10, y: 80, w: 80, h: 10},
+    // 上下の外枠壁
+    {x: 0, y: 10, w: 2500, h: 10},
+    {x: 0, y: 80, w: 2500, h: 10},
+    {x: 0, y: 10, w: 10, h: 80},
 
-    // エリア1: 通路幅70px（y:10〜y:80）
-    {x: 80, y: 10, w: 710, h: 10},
-    {x: 80, y: 80, w: 630, h: 10},
+    // --- 前方に立ちはだかる壁（上下の隙間を抜ける） ---
+    // 前方の壁 1（下が開いている）
+    {x: 300, y: 20, w: 15, h: 45}, 
+    // 前方の壁 2（上が開いている）
+    {x: 500, y: 35, w: 15, h: 45}, 
+    // 前方の壁 3（中央の隙間11pxを抜ける）
+    {x: 700, y: 20, w: 15, h: 22},
+    {x: 700, y: 53, w: 15, h: 27},
 
-    // 上下からの突起（隙間11px）
-    {x: 160, y: 20, w: 6, h: 49}, 
-    {x: 280, y: 20, w: 6, h: 49}, 
-    {x: 400, y: 20, w: 6, h: 49}, 
-    {x: 520, y: 20, w: 6, h: 49}, 
-    {x: 640, y: 20, w: 6, h: 49},
+    // 前方の壁 4（下が開いている）
+    {x: 950, y: 20, w: 15, h: 48},
+    // 前方の壁 5（上が開いている）
+    {x: 1200, y: 32, w: 15, h: 48},
 
-    {x: 220, y: 31, w: 6, h: 49}, 
-    {x: 340, y: 31, w: 6, h: 49}, 
-    {x: 460, y: 31, w: 6, h: 49}, 
-    {x: 580, y: 31, w: 6, h: 49},
+    // 連続クランク壁
+    {x: 1450, y: 20, w: 15, h: 45},
+    {x: 1650, y: 35, w: 15, h: 45},
+    {x: 1850, y: 20, w: 15, h: 45},
 
-    // 右端コーナー（下へ降ろす）
-    {x: 780, y: 10, w: 10, h: 250},
-    {x: 700, y: 80, w: 10, h: 110},
-
-    // 画像の横通路（右から左へ進むゾーン：y=180〜250）
-    {x: 270, y: 180, w: 440, h: 10}, // 上壁
-    {x: 200, y: 250, w: 590, h: 10}, // 下壁
-
-    // 修正ポイント：左奥の行き止まりを消去し、そのまま下へ降りられる接続通路を確保
-    {x: 200, y: 250, w: 10, h: 300}, // 左縦壁
-    {x: 270, y: 190, w: 10, h: 290}, // 右縦壁
-
-    // コーナー4（右へ）
-    {x: 200, y: 540, w: 500, h: 10},
-    {x: 270, y: 470, w: 510, h: 10},
-
-    // コーナー5（下へ）
-    {x: 770, y: 470, w: 10, h: 350},
-    {x: 690, y: 540, w: 10, h: 350},
-
-    // コーナー6（左へ）
-    {x: 100, y: 810, w: 600, h: 10},
-    {x: 170, y: 880, w: 610, h: 10},
-
-    // コーナー7（下〜ゴールへ）
-    {x: 100, y: 810, w: 10, h: 850},
-    {x: 170, y: 880, w: 10, h: 710},
-    {x: 10, y: 1720, w: 170, h: 10},
-    {x: 10, y: 1580, w: 10, h: 140},
-    {x: 10, y: 1580, w: 100, h: 10}
+    // ラスボス手前の極小隙間（11px）
+    {x: 2100, y: 20, w: 20, h: 25},
+    {x: 2100, y: 56, w: 20, h: 24}
 ];
 
-// --- 動く障害物 ---
+// --- 動く障害物（上下に動いて前方を塞ぐ） ---
 const movingObstacles = [
-    {x: 715, y: 110, w: 48, h: 8, baseSpeed: 0.6, dirX: 1, dirY: 0, minX: 715, maxX: 775, minY: 0, maxY: 0},
-    {x: 300, y: 195, w: 8, h: 38, baseSpeed: 1.0, dirX: 0, dirY: 1, minX: 0, maxX: 0, minY: 195, maxY: 240},
-    {x: 215, y: 300, w: 38, h: 8, baseSpeed: 1.2, dirX: 1, dirY: 0, minX: 215, maxX: 265, minY: 0, maxY: 0},
-    {x: 350, y: 485, w: 8, h: 38, baseSpeed: 1.5, dirX: 0, dirY: 1, minX: 0, maxX: 0, minY: 485, maxY: 530},
-    {x: 705, y: 600, w: 48, h: 8, baseSpeed: 1.8, dirX: 1, dirY: 0, minX: 705, maxX: 765, minY: 0, maxY: 0},
-    {x: 300, y: 825, w: 10, h: 38, baseSpeed: 2.2, dirX: 0, dirY: 1, minX: 0, maxX: 0, minY: 825, maxY: 870},
-    {x: 105, y: 1200, w: 48, h: 8, baseSpeed: 2.5, dirX: 1, dirY: 0, minX: 105, maxX: 165, minY: 0, maxY: 0}
+    {x: 400, y: 20, w: 10, h: 30, speed: 0.8, dir: 1, minY: 20, maxY: 50},
+    {x: 820, y: 30, w: 10, h: 30, speed: 1.2, dir: -1, minY: 20, maxY: 50},
+    {x: 1080, y: 20, w: 12, h: 25, speed: 1.5, dir: 1, minY: 20, maxY: 55},
+    {x: 1350, y: 35, w: 12, h: 25, speed: 1.8, dir: -1, minY: 20, maxY: 55},
+    {x: 1950, y: 20, w: 15, h: 25, speed: 2.2, dir: 1, minY: 20, maxY: 55}
 ];
 
 function checkCollisionRect(circleX, circleY, radius, rect) {
@@ -149,12 +124,14 @@ function checkCollisionRect(circleX, circleY, radius, rect) {
 
 function update() {
     if (gameState === 'PLAYING') {
-        if (keys.ArrowUp) playerY -= PLAYER_SPEED;
-        if (keys.ArrowDown) playerY += PLAYER_SPEED;
-        if (keys.ArrowLeft) playerX -= PLAYER_SPEED;
-        if (keys.ArrowRight) playerX += PLAYER_SPEED;
+        // 自動で右へ前進
+        playerX += AUTO_SPEED_X;
 
-        // 壁判定
+        // プレイヤーの上下操作
+        if (keys.ArrowUp) playerY -= PLAYER_SPEED_Y;
+        if (keys.ArrowDown) playerY += PLAYER_SPEED_Y;
+
+        // 壁（前方の壁含む）との衝突判定
         for (let wall of walls) {
             if (checkCollisionRect(playerX, playerY, PLAYER_RADIUS, wall)) {
                 gameState = 'GAMEOVER';
@@ -163,16 +140,11 @@ function update() {
             }
         }
 
-        // 動く障害物判定
+        // 移動障害物との衝突判定
         for (let obs of movingObstacles) {
-            if (obs.dirX !== 0) {
-                obs.x += obs.baseSpeed * obs.dirX;
-                if (obs.x < obs.minX || obs.x + obs.w > obs.maxX) obs.dirX *= -1;
-            }
-            if (obs.dirY !== 0) {
-                obs.y += obs.baseSpeed * obs.dirY;
-                if (obs.y < obs.minY || obs.y + obs.h > obs.maxY) obs.dirY *= -1;
-            }
+            obs.y += obs.speed * obs.dir;
+            if (obs.y < obs.minY || obs.y + obs.h > obs.maxY + obs.h) obs.dir *= -1;
+
             if (checkCollisionRect(playerX, playerY, PLAYER_RADIUS, obs)) {
                 gameState = 'GAMEOVER';
                 deathCount++;
@@ -229,17 +201,17 @@ function update() {
         ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = '#00ffcc';
-        ctx.fillText('矢印キーを押してスタート', canvas.width / 2, canvas.height / 2);
+        ctx.fillText('↑ または ↓ キーを押してスタート！', canvas.width / 2, canvas.height / 2);
     } else if (gameState === 'GAMEOVER') {
         ctx.fillStyle = 'rgba(150, 0, 0, 0.75)';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = '#ffffff';
-        ctx.fillText('DEATH - 矢印キーでリトライ', canvas.width / 2, canvas.height / 2);
+        ctx.fillText('CRASH! キーを押してリトライ', canvas.width / 2, canvas.height / 2);
     } else if (gameState === 'CLEAR') {
         ctx.fillStyle = 'rgba(0, 200, 100, 0.85)';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = '#ffffff';
-        ctx.fillText('CLEAR! 完全制覇おめでとう！', canvas.width / 2, canvas.height / 2);
+        ctx.fillText('CLEAR! おめでとう！', canvas.width / 2, canvas.height / 2);
     }
 
     requestAnimationFrame(update);
