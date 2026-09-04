@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>激難アクション - 拡大版</title>
+    <title>激難アクション - 難易度調整版</title>
     <style>
         body {
             background-color: #111;
@@ -20,34 +20,73 @@
             font-size: 1.2rem;
             margin-bottom: 10px;
         }
+        #startScreen {
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #222;
+            width: 460px;
+            border: 2px solid #fff;
+        }
+        .btn {
+            font-size: 1.2rem;
+            padding: 10px 20px;
+            margin: 10px;
+            cursor: pointer;
+            border: none;
+            color: #fff;
+            font-weight: bold;
+            border-radius: 5px;
+        }
+        .easy { background-color: #28a745; }
+        .normal { background-color: #007bff; }
+        .hard { background-color: #dc3545; }
+        .btn:hover { opacity: 0.8; }
+        .hidden { display: none; }
     </style>
 </head>
 <body>
 
-    <h1>激難アクション - 拡大版</h1>
-    <p>青い弾を避けて緑のゴールを目指せ！</p>
-    <div class="info">
-        STAGE: <span id="stageNum">1</span> / 3 | 
-        ミス回数: <span id="deathCount">0</span>
+    <h1>激難アクション</h1>
+
+    <!-- スタート画面 -->
+    <div id="startScreen">
+        <h2>難易度を選択してください</h2>
+        <button class="btn easy" onclick="startGame('easy')">簡単</button>
+        <button class="btn normal" onclick="startGame('normal')">普通</button>
+        <button class="btn hard" onclick="startGame('hard')">難しい</button>
     </div>
 
-    <canvas id="gameCanvas" width="500" height="250"></canvas>
+    <!-- ゲーム画面 -->
+    <div id="gameContainer" class="hidden">
+        <div class="info">
+            難易度: <span id="diffText">-</span> | 
+            STAGE: <span id="stageNum">1</span> / 3 | 
+            ミス回数: <span id="deathCount">0</span>
+        </div>
+
+        <canvas id="gameCanvas" width="500" height="250"></canvas>
+    </div>
 
     <script>
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
         const deathCountElement = document.getElementById("deathCount");
         const stageNumElement = document.getElementById("stageNum");
+        const diffTextElement = document.getElementById("diffText");
+        const startScreen = document.getElementById("startScreen");
+        const gameContainer = document.getElementById("gameContainer");
 
         let deaths = 0;
         let currentStage = 1;
         let frameCount = 0;
+        let currentDifficulty = "normal";
+        let isGameRunning = false;
 
-        // プレイヤー（10px -> 16pxに拡大）
+        // プレイヤー
         const player = {
             x: 15,
             y: 117,
-            size: 16,
+            size: 10,
             speed: 3.5
         };
 
@@ -57,9 +96,8 @@
 
         let enemies = [];
 
-        // キー入力の状態管理
+        // キー入力管理
         const keys = {};
-
         window.addEventListener("keydown", (e) => keys[e.key] = true);
         window.addEventListener("keyup", (e) => keys[e.key] = false);
 
@@ -68,32 +106,73 @@
                 keys[key] = false;
             }
         }
-
         window.addEventListener("blur", clearKeys);
 
-        // ステージ構造の設定
+        // ゲームスタート処理
+        function startGame(difficulty) {
+            currentDifficulty = difficulty;
+            let diffName = "普通";
+            if (difficulty === "easy") diffName = "簡単";
+            if (difficulty === "hard") diffName = "難しい";
+            
+            diffTextElement.textContent = diffName;
+            startScreen.classList.add("hidden");
+            gameContainer.classList.remove("hidden");
+
+            deaths = 0;
+            deathCountElement.textContent = deaths;
+            isGameRunning = true;
+
+            loadStage(1);
+            loop();
+        }
+
+        // ステージ設定
         function loadStage(stage) {
             clearKeys();
 
             currentStage = stage;
             stageNumElement.textContent = currentStage;
-            player.x = 15;
-            player.y = 117;
             enemies = [];
 
+            // 難易度に応じたサイズパラメーター設定
+            let ballRadius = 8;
+            let pSize = 10;
+            let ballGap = 0;
+
+            if (currentDifficulty === "easy") {
+                // 簡単：自分とボールを一回り大きく＋隙間4px
+                pSize = 16;
+                ballRadius = 12;
+                ballGap = 4;
+            } else if (currentDifficulty === "normal") {
+                // 普通：大きさを元に戻す（小さく）＋隙間4px
+                pSize = 10;
+                ballRadius = 8;
+                ballGap = 4;
+            } else if (currentDifficulty === "hard") {
+                // 難しい：元の大きさ＋隙間0px（密着）
+                pSize = 10;
+                ballRadius = 8;
+                ballGap = 0;
+            }
+
+            player.size = pSize;
+            player.x = 15;
+            player.y = (canvas.height / 2) - (player.size / 2);
+
             if (stage === 1) {
-                // STAGE 1: 横一列密接＆全域カバー（半径12px / 直径24pxに拡大）
-                const radius = 12;
+                // STAGE 1
                 const startX = 65;
                 const endX = 435;
-                const step = radius * 2; // 密接配置 (24px間隔)
+                const step = (ballRadius * 2) + ballGap;
 
                 let count = 0;
                 for (let x = startX; x <= endX; x += step) {
                     enemies.push({
                         x: x,
-                        y: (count % 2 === 0) ? radius : canvas.height - radius,
-                        radius: radius,
+                        y: (count % 2 === 0) ? ballRadius : canvas.height - ballRadius,
+                        radius: ballRadius,
                         speedX: 0,
                         speedY: (count % 2 === 0) ? 6 : -6,
                         type: "bounce"
@@ -101,7 +180,7 @@
                     count++;
                 }
             } else if (stage === 2) {
-                // STAGE 2: 旋回＋縦横交差（ボール拡大版）
+                // STAGE 2
                 const centerX = 250, centerY = 125, radius = 70;
                 for (let i = 0; i < 10; i++) {
                     const angle = (Math.PI * 2 / 10) * i;
@@ -109,20 +188,19 @@
                         cx: centerX, cy: centerY, r: radius, angle: angle,
                         x: centerX + Math.cos(angle) * radius,
                         y: centerY + Math.sin(angle) * radius,
-                        radius: 12, speedAngle: 0.08, type: "rotate"
+                        radius: ballRadius, speedAngle: 0.08, type: "rotate"
                     });
                 }
 
-                enemies.push({ x: 50, y: 30, radius: 16, speedX: 7, speedY: 0, minX: 50, maxX: 450, type: "bounceRange" });
-                enemies.push({ x: 450, y: 220, radius: 16, speedX: -7, speedY: 0, minX: 50, maxX: 450, type: "bounceRange" });
+                enemies.push({ x: 50, y: 30, radius: ballRadius * 1.3, speedX: 7, speedY: 0, minX: 50, maxX: 450, type: "bounceRange" });
+                enemies.push({ x: 450, y: 220, radius: ballRadius * 1.3, speedX: -7, speedY: 0, minX: 50, maxX: 450, type: "bounceRange" });
             } else if (stage === 3) {
-                // STAGE 3: 弾幕地獄（ボール拡大版）
-                const radius = 10;
+                // STAGE 3
                 for (let x = 70; x <= 430; x += 35) {
                     enemies.push({
                         x: x,
-                        y: (x % 20 === 0) ? radius : canvas.height - radius,
-                        radius: radius,
+                        y: (x % 20 === 0) ? ballRadius : canvas.height - ballRadius,
+                        radius: ballRadius,
                         speedX: 0,
                         speedY: (x % 20 === 0) ? 8 : -8,
                         type: "bounce"
@@ -132,9 +210,11 @@
         }
 
         function update() {
+            if (!isGameRunning) return;
+
             frameCount++;
 
-            // 移動操作
+            // 移動
             if ((keys["ArrowUp"] || keys["w"]) && player.y > 0) player.y -= player.speed;
             if ((keys["ArrowDown"] || keys["s"]) && player.y + player.size < canvas.height) player.y += player.speed;
             if ((keys["ArrowLeft"] || keys["a"]) && player.x > 0) player.x -= player.speed;
@@ -150,7 +230,7 @@
                             x: 250, y: 125,
                             vx: Math.cos(angle) * 3.5,
                             vy: Math.sin(angle) * 3.5,
-                            radius: 6,
+                            radius: 5,
                             type: "bullet"
                         });
                     }
@@ -160,17 +240,17 @@
                     enemies.push({
                         x: 60 + Math.random() * 380, y: 0,
                         vx: (Math.random() - 0.5) * 2, vy: 4 + Math.random() * 2,
-                        radius: 6, type: "bullet"
+                        radius: 5, type: "bullet"
                     });
                     enemies.push({
                         x: 60 + Math.random() * 380, y: 250,
                         vx: (Math.random() - 0.5) * 2, vy: -(4 + Math.random() * 2),
-                        radius: 6, type: "bullet"
+                        radius: 5, type: "bullet"
                     });
                 }
             }
 
-            // 障害物の処理
+            // 障害物アップデート
             for (let i = enemies.length - 1; i >= 0; i--) {
                 let enemy = enemies[i];
 
@@ -219,14 +299,16 @@
                     loadStage(currentStage + 1);
                 } else {
                     alert(`全ステージクリア！おめでとうございます！\n総ミス回数: ${deaths} 回`);
-                    deaths = 0;
-                    deathCountElement.textContent = deaths;
-                    loadStage(1);
+                    isGameRunning = false;
+                    gameContainer.classList.add("hidden");
+                    startScreen.classList.remove("hidden");
                 }
             }
         }
 
         function draw() {
+            if (!isGameRunning) return;
+
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             // 背景
@@ -253,14 +335,14 @@
                 ctx.stroke();
             }
 
-            // プレイヤー描画
+            // プレイヤー
             ctx.fillStyle = "#ff3333";
             ctx.fillRect(player.x, player.y, player.size, player.size);
             ctx.strokeStyle = "#fff";
             ctx.lineWidth = 1;
             ctx.strokeRect(player.x, player.y, player.size, player.size);
 
-            // 障害物描画
+            // 障害物
             enemies.forEach(enemy => {
                 ctx.beginPath();
                 ctx.arc(enemy.x, enemy.y, enemy.radius, 0, Math.PI * 2);
@@ -273,13 +355,12 @@
         }
 
         function loop() {
-            update();
-            draw();
-            requestAnimationFrame(loop);
+            if (isGameRunning) {
+                update();
+                draw();
+                requestAnimationFrame(loop);
+            }
         }
-
-        loadStage(1);
-        loop();
     </script>
 </body>
 </html>
