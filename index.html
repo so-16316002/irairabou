@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>激難アクション - ボールサイズ完全連動版</title>
+    <title>激難アクション - STAGE1ボールサイズ（16px）完全一致版</title>
     <style>
         body {
             background-color: #111;
@@ -173,7 +173,7 @@
             player.y = (canvas.height / 2) - (player.size / 2);
 
             if (stage === 1) {
-                // STAGE 1: ボールサイズ固定 (標準: 半径8px -> 直径16px)
+                // STAGE 1: ボールサイズ（半径8px = 直径16px）
                 const ballRadius = 8;
                 const ballGap = (currentDifficulty === "hard") ? 0 : 4;
                 const startX = 65;
@@ -193,7 +193,7 @@
                     count++;
                 }
             } else if (stage === 2) {
-                // STAGE 2: 指定サイズ適用 (簡単:半径6.5px/直径13px, 普通:半径7.5px/直径15px, 難しい:半径8.5px/直径17px)
+                // STAGE 2
                 let stage2Radius = 7.5;
                 if (currentDifficulty === "easy") stage2Radius = 6.5;
                 if (currentDifficulty === "hard") stage2Radius = 8.5;
@@ -223,7 +223,7 @@
                     }
                 });
             } else if (stage === 3) {
-                // STAGE 3: ボールサイズ固定 (標準: 半径8px -> 直径16px)
+                // STAGE 3
                 const ballRadius = 8;
                 for (let x = 70; x <= 430; x += 35) {
                     enemies.push({
@@ -335,13 +335,11 @@
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // 背景描画処理の修正：
-            // 「簡単」の時は、画面上の青いボール（最初の大型敵など）の直径（半径×2）と完全一致させる
-            let tileSize = 25; // デフォルト（普通・難しい）
+            // 背景マスのサイズ設定:
+            // 簡単モードの時は、1ステージ目の青いボール（半径8px = 直径16px）と完全同一の16pxに設定
+            let tileSize = 25; 
             if (currentDifficulty === "easy") {
-                // 配列の先頭にある青いボールの直径を取得（なければ13px）
-                const sampleBall = enemies.find(e => e.type !== "bullet");
-                tileSize = sampleBall ? sampleBall.radius * 2 : 13;
+                tileSize = 16; 
             }
 
             for (let r = 0; r < Math.ceil(canvas.height / tileSize); r++) {
