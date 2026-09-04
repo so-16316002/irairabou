@@ -118,7 +118,21 @@
                 }
             }
         }
+        function loadStage(stage) {
+    clearKeys(); // ← 追加：ステージ切り替え時にキー入力を一度リセットする
 
+    currentStage = stage;
+    stageNumElement.textContent = currentStage;
+    player.x = 40;
+    player.y = 185;
+    enemies = [];
+    
+    // ...以下そのまま
+       function clearKeys() {
+       for (let key in keys) {
+       keys[key] = false;
+     }
+ }
         const keys = {};
         window.addEventListener("keydown", (e) => keys[e.key] = true);
         window.addEventListener("keyup", (e) => keys[e.key] = false);
