@@ -47,7 +47,7 @@
         const player = {
             x: 40,
             y: 185,
-            size: 12, // 弾幕回避のため当たり判定を小さめ（12px）に設定
+            size: 12,
             speed: 3
         };
 
@@ -57,8 +57,26 @@
 
         let enemies = [];
 
+        // キー入力の状態管理
+        const keys = {};
+
+        window.addEventListener("keydown", (e) => keys[e.key] = true);
+        window.addEventListener("keyup", (e) => keys[e.key] = false);
+
+        // キー入力の状態をリセットする関数（バグ対策）
+        function clearKeys() {
+            for (let key in keys) {
+                keys[key] = false;
+            }
+        }
+
+        // ウィンドウからフォーカスが外れた時もキー状態をクリア
+        window.addEventListener("blur", clearKeys);
+
         // ステージ構造の設定
         function loadStage(stage) {
+            clearKeys(); // ステージロード時にキー状態をリセット
+
             currentStage = stage;
             stageNumElement.textContent = currentStage;
             player.x = 40;
@@ -118,42 +136,19 @@
                 }
             }
         }
-        function loadStage(stage) {
-    clearKeys(); // ← 追加：ステージ切り替え時にキー入力を一度リセットする
-
-    currentStage = stage;
-    stageNumElement.textContent = currentStage;
-    player.x = 40;
-    player.y = 185;
-    enemies = [];
-    
-    // ...以下そのまま
-       function clearKeys() {
-       for (let key in keys) {
-       keys[key] = false;
-     }
- }
-        const keys = {};
-        window.addEventListener("keydown", (e) => keys[e.key] = true);
-        window.addEventListener("keyup", (e) => keys[e.key] = false);
-
-        function resetPlayer() {
-            player.x = startZone.x + 20;
-            player.y = startZone.y + startZone.height / 2 - player.size / 2;
-        }
 
         function update() {
             frameCount++;
 
-            // 操作
+            // 移動操作
             if ((keys["ArrowUp"] || keys["w"]) && player.y > 0) player.y -= player.speed;
             if ((keys["ArrowDown"] || keys["s"]) && player.y + player.size < canvas.height) player.y += player.speed;
             if ((keys["ArrowLeft"] || keys["a"]) && player.x > 0) player.x -= player.speed;
             if ((keys["ArrowRight"] || keys["d"]) && player.x + player.size < canvas.width) player.x += player.speed;
 
-            // STAGE 3 動的弾幕生成（怒首領蜂風）
+            // STAGE 3 動的弾幕生成
             if (currentStage === 3) {
-                // 一定フレームごとに全方位リング弾幕を放射（画面中央の砲台より）
+                // 全方位リング弾幕（中央砲台）
                 if (frameCount % 40 === 0) {
                     const bulletCount = 12;
                     for (let i = 0; i < bulletCount; i++) {
@@ -183,7 +178,7 @@
                 }
             }
 
-            // 障害物の動き制御
+            // 障害物の移動・更新
             for (let i = enemies.length - 1; i >= 0; i--) {
                 let enemy = enemies[i];
 
@@ -204,20 +199,20 @@
                 } else if (enemy.type === "bullet") {
                     enemy.x += enemy.vx;
                     enemy.y += enemy.vy;
-                    // 画面外に出た生成弾は消去
+                    // 画面外削除
                     if (enemy.x < 0 || enemy.x > canvas.width || enemy.y < 0 || enemy.y > canvas.height) {
                         enemies.splice(i, 1);
                         continue;
                     }
                 }
 
-                // 当たり判定
+                // 衝突判定
                 const closestX = Math.max(player.x, Math.min(player.x + player.size, enemy.x));
                 const closestY = Math.max(player.y, Math.min(player.y + player.size, enemy.y));
                 if (Math.hypot(enemy.x - closestX, enemy.y - closestY) < enemy.radius) {
                     deaths++;
                     deathCountElement.textContent = deaths;
-                    loadStage(currentStage); // ミス時は現在のステージをやり直し
+                    loadStage(currentStage);
                     return;
                 }
             }
@@ -257,7 +252,7 @@
             ctx.fillRect(startZone.x, startZone.y, startZone.width, startZone.height);
             ctx.fillRect(goalZone.x, goalZone.y, goalZone.width, goalZone.height);
 
-            // STAGE 3 中央砲台の演出描画
+            // STAGE 3 中央砲台描画
             if (currentStage === 3) {
                 ctx.beginPath();
                 ctx.arc(350, 200, 20, 0, Math.PI * 2);
@@ -274,7 +269,7 @@
             ctx.lineWidth = 1;
             ctx.strokeRect(player.x, player.y, player.size, player.size);
 
-            // 障害物・弾幕描画
+            // 障害物描画
             enemies.forEach(enemy => {
                 ctx.beginPath();
                 ctx.arc(enemy.x, enemy.y, enemy.radius, 0, Math.PI * 2);
@@ -292,6 +287,7 @@
             requestAnimationFrame(loop);
         }
 
+        // ゲーム開始
         loadStage(1);
         loop();
     </script>
