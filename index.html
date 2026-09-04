@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>激難アクション - ステージ2改良版</title>
+    <title>激難アクション - ボールサイズ調整版</title>
     <style>
         body {
             background-color: #111;
@@ -154,26 +154,26 @@
             enemies = [];
 
             // 難易度に応じたサイズパラメーター設定
-            let ballRadius = 8;
+            let ballRadius = 7.5; // デフォルト (普通: 直径15px -> 半径7.5px)
             let pSize = 10;
             let ballGap = 0;
             let speedMult = 1.0;
 
             if (currentDifficulty === "easy") {
                 pSize = 16;
-                ballRadius = 12;
+                ballRadius = 6.5; // 簡単: 直径13px (半径 6.5px)
                 ballGap = 4;
-                speedMult = 0.7; // ゆっくり
+                speedMult = 0.7;
             } else if (currentDifficulty === "normal") {
                 pSize = 10;
-                ballRadius = 8;
+                ballRadius = 7.5; // 普通: 直径15px (半径 7.5px)
                 ballGap = 4;
-                speedMult = 1.0; // 標準
+                speedMult = 1.0;
             } else if (currentDifficulty === "hard") {
                 pSize = 10;
-                ballRadius = 8;
+                ballRadius = 8.5; // 難しい: 直径17px (半径 8.5px)
                 ballGap = 0;
-                speedMult = 1.35; // 高速
+                speedMult = 1.35;
             }
 
             player.size = pSize;
@@ -199,10 +199,9 @@
                     count++;
                 }
             } else if (stage === 2) {
-                // STAGE 2: 3層の旋回ボール（全体カバー）
+                // STAGE 2: 3層の旋回ボール（指定サイズ適用）
                 const centerX = 250, centerY = 125;
 
-                // 3層の設定 [半径, 個数, 回転速度(正:時計回り / 負:反時計回り)]
                 const layers = [
                     { r: 110, count: 12, speed: 0.035 * speedMult },  // 1層目 (外側・時計回り)
                     { r: 75,  count: 9,  speed: -0.05 * speedMult },  // 2層目 (中側・反時計回り)
