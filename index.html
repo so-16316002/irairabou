@@ -40,7 +40,14 @@
         .easy { background-color: #28a745; }
         .normal { background-color: #007bff; }
         .hard { background-color: #dc3545; }
-        .btn:hover { opacity: 0.8; }
+        .btn-quit {
+            background-color: #6c757d;
+            font-size: 0.9rem;
+            padding: 5px 12px;
+            margin-left: 15px;
+            border: 1px solid #fff;
+        }
+        .btn:hover, .btn-quit:hover { opacity: 0.8; }
         .hidden { display: none; }
     </style>
 </head>
@@ -62,6 +69,7 @@
             難易度: <span id="diffText">-</span> | 
             STAGE: <span id="stageNum">1</span> / 3 | 
             ミス回数: <span id="deathCount">0</span>
+            <button class="btn btn-quit" onclick="returnToTitle()">タイトルへ戻る</button>
         </div>
 
         <canvas id="gameCanvas" width="500" height="250"></canvas>
@@ -125,6 +133,16 @@
 
             loadStage(1);
             loop();
+        }
+
+        // タイトルへ戻る処理
+        function returnToTitle() {
+            if (confirm("タイトル画面に戻りますか？\n（現在の進行状況はリセットされます）")) {
+                isGameRunning = false;
+                clearKeys();
+                gameContainer.classList.add("hidden");
+                startScreen.classList.remove("hidden");
+            }
         }
 
         // ステージ設定
