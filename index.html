@@ -2,19 +2,19 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>極・激難アクションゲーム</title>
+    <title>激難アクション - 弾幕地獄編</title>
     <style>
         body {
-            background-color: #1a1a1a;
+            background-color: #111;
             color: #fff;
             text-align: center;
             font-family: sans-serif;
         }
         canvas {
-            background-color: #2a2a2a;
+            background-color: #222;
             border: 4px solid #fff;
             display: block;
-            margin: 20px auto;
+            margin: 10px auto;
         }
         .info {
             font-size: 1.2rem;
@@ -24,11 +24,11 @@
 </head>
 <body>
 
-    <h1>極・激難アクションゲーム</h1>
-    <p>すべての黄色のコインを集めてから、緑のゴールを目指せ！</p>
+    <h1>激難アクション - 弾幕地獄編</h1>
+    <p>青い弾を避けて緑のゴールを目指せ！</p>
     <div class="info">
-        ミス回数: <span id="deathCount">0</span> | 
-        コイン: <span id="coinCount">0</span> / <span id="totalCoins">0</span>
+        STAGE: <span id="stageNum">1</span> / 3 | 
+        ミス回数: <span id="deathCount">0</span>
     </div>
 
     <canvas id="gameCanvas" width="700" height="400"></canvas>
@@ -37,120 +37,191 @@
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
         const deathCountElement = document.getElementById("deathCount");
-        const coinCountElement = document.getElementById("coinCount");
-        const totalCoinsElement = document.getElementById("totalCoins");
+        const stageNumElement = document.getElementById("stageNum");
 
         let deaths = 0;
-        let collectedCoins = 0;
+        let currentStage = 1;
+        let frameCount = 0;
 
         // プレイヤー
         const player = {
             x: 40,
             y: 185,
-            size: 16,
-            speed: 2.5
+            size: 12, // 弾幕回避のため当たり判定を小さめ（12px）に設定
+            speed: 3
         };
 
-        // 安全地帯・ゴール
-        const startZone = { x: 0, y: 150, width: 80, height: 100 };
-        const goalZone = { x: 620, y: 150, width: 80, height: 100 };
+        // 安全地帯・ゴール領域
+        let startZone = { x: 0, y: 150, width: 80, height: 100 };
+        let goalZone = { x: 620, y: 150, width: 80, height: 100 };
 
-        // コイン（回収必須アイテム）
-        const coins = [
-            { x: 200, y: 60, radius: 8, collected: false },
-            { x: 350, y: 200, radius: 8, collected: false },
-            { x: 500, y: 340, radius: 8, collected: false }
-        ];
+        let enemies = [];
 
-        totalCoinsElement.textContent = coins.length;
+        // ステージ構造の設定
+        function loadStage(stage) {
+            currentStage = stage;
+            stageNumElement.textContent = currentStage;
+            player.x = 40;
+            player.y = 185;
+            enemies = [];
 
-        // 障害物（青い玉）
-        const enemies = [
-            // 上下移動（高速）
-            { x: 120, y: 20, radius: 9, speedX: 0, speedY: 7 },
-            { x: 160, y: 380, radius: 9, speedX: 0, speedY: -7 },
-            { x: 240, y: 20, radius: 9, speedX: 0, speedY: 8 },
-            { x: 280, y: 380, radius: 9, speedX: 0, speedY: -8 },
+            if (stage === 1) {
+                // STAGE 1: 高速縦往復
+                startZone = { x: 0, y: 150, width: 80, height: 100 };
+                goalZone = { x: 620, y: 150, width: 80, height: 100 };
+                
+                for (let i = 0; i < 7; i++) {
+                    enemies.push({
+                        x: 120 + i * 70,
+                        y: i % 2 === 0 ? 20 : 380,
+                        radius: 8,
+                        speedX: 0,
+                        speedY: (i % 2 === 0 ? 1 : -1) * (7 + i * 0.5),
+                        type: "bounce"
+                    });
+                }
+            } else if (stage === 2) {
+                // STAGE 2: 旋回＆挟み込み
+                startZone = { x: 0, y: 0, width: 80, height: 80 };
+                goalZone = { x: 620, y: 320, width: 80, height: 80 };
 
-            // 左右移動（狭い通路の圧迫）
-            { x: 320, y: 120, radius: 9, speedX: 6, speedY: 0, minX: 320, maxX: 480 },
-            { x: 480, y: 280, radius: 9, speedX: -6, speedY: 0, minX: 320, maxX: 480 },
+                // 円形回転パターン
+                const centerX = 350, centerY = 200, radius = 100;
+                for (let i = 0; i < 8; i++) {
+                    const angle = (Math.PI * 2 / 8) * i;
+                    enemies.push({
+                        cx: centerX, cy: centerY, r: radius, angle: angle,
+                        x: centerX + Math.cos(angle) * radius,
+                        y: centerY + Math.sin(angle) * radius,
+                        radius: 8, speedAngle: 0.05, type: "rotate"
+                    });
+                }
 
-            // 回転風のクロス移動
-            { x: 540, y: 50, radius: 9, speedX: 0, speedY: 9 },
-            { x: 580, y: 350, radius: 9, speedX: 0, speedY: -9 }
-        ];
+                // 左右挟み込み
+                enemies.push({ x: 100, y: 100, radius: 10, speedX: 5, speedY: 0, minX: 100, maxX: 600, type: "bounceRange" });
+                enemies.push({ x: 600, y: 300, radius: 10, speedX: -5, speedY: 0, minX: 100, maxX: 600, type: "bounceRange" });
+            } else if (stage === 3) {
+                // STAGE 3: 怒首領蜂最大往生風 弾幕地獄
+                startZone = { x: 0, y: 150, width: 70, height: 100 };
+                goalZone = { x: 630, y: 150, width: 70, height: 100 };
+
+                // 固定の高速針弾レーン
+                for (let i = 0; i < 5; i++) {
+                    enemies.push({
+                        x: 180 + i * 80,
+                        y: (i % 2 === 0 ? 20 : 380),
+                        radius: 6,
+                        speedX: 0,
+                        speedY: (i % 2 === 0 ? 10 : -10),
+                        type: "bounce"
+                    });
+                }
+            }
+        }
 
         const keys = {};
         window.addEventListener("keydown", (e) => keys[e.key] = true);
         window.addEventListener("keyup", (e) => keys[e.key] = false);
 
-        function resetGame() {
-            player.x = 40;
-            player.y = 185;
-            collectedCoins = 0;
-            coins.forEach(c => c.collected = false);
-            coinCountElement.textContent = collectedCoins;
+        function resetPlayer() {
+            player.x = startZone.x + 20;
+            player.y = startZone.y + startZone.height / 2 - player.size / 2;
         }
 
         function update() {
-            // 移動
+            frameCount++;
+
+            // 操作
             if ((keys["ArrowUp"] || keys["w"]) && player.y > 0) player.y -= player.speed;
             if ((keys["ArrowDown"] || keys["s"]) && player.y + player.size < canvas.height) player.y += player.speed;
             if ((keys["ArrowLeft"] || keys["a"]) && player.x > 0) player.x -= player.speed;
             if ((keys["ArrowRight"] || keys["d"]) && player.x + player.size < canvas.width) player.x += player.speed;
 
-            // 障害物の挙動
-            enemies.forEach(enemy => {
-                enemy.x += enemy.speedX;
-                enemy.y += enemy.speedY;
+            // STAGE 3 動的弾幕生成（怒首領蜂風）
+            if (currentStage === 3) {
+                // 一定フレームごとに全方位リング弾幕を放射（画面中央の砲台より）
+                if (frameCount % 40 === 0) {
+                    const bulletCount = 12;
+                    for (let i = 0; i < bulletCount; i++) {
+                        const angle = (Math.PI * 2 / bulletCount) * i + (frameCount * 0.05);
+                        enemies.push({
+                            x: 350, y: 200,
+                            vx: Math.cos(angle) * 3,
+                            vy: Math.sin(angle) * 3,
+                            radius: 5,
+                            type: "bullet"
+                        });
+                    }
+                }
 
-                // 壁での反射（上下）
-                if (enemy.speedY !== 0) {
+                // 上下からの高速拡散弾
+                if (frameCount % 20 === 0) {
+                    enemies.push({
+                        x: 120 + Math.random() * 460, y: 0,
+                        vx: (Math.random() - 0.5) * 2, vy: 4 + Math.random() * 3,
+                        radius: 5, type: "bullet"
+                    });
+                    enemies.push({
+                        x: 120 + Math.random() * 460, y: 400,
+                        vx: (Math.random() - 0.5) * 2, vy: -(4 + Math.random() * 3),
+                        radius: 5, type: "bullet"
+                    });
+                }
+            }
+
+            // 障害物の動き制御
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                let enemy = enemies[i];
+
+                if (enemy.type === "bounce") {
+                    enemy.y += enemy.speedY;
                     if (enemy.y - enemy.radius < 0 || enemy.y + enemy.radius > canvas.height) {
                         enemy.speedY *= -1;
                     }
-                }
-
-                // 範囲での反射（左右）
-                if (enemy.speedX !== 0) {
+                } else if (enemy.type === "rotate") {
+                    enemy.angle += enemy.speedAngle;
+                    enemy.x = enemy.cx + Math.cos(enemy.angle) * enemy.r;
+                    enemy.y = enemy.cy + Math.sin(enemy.angle) * enemy.r;
+                } else if (enemy.type === "bounceRange") {
+                    enemy.x += enemy.speedX;
                     if (enemy.x - enemy.radius < enemy.minX || enemy.x + enemy.radius > enemy.maxX) {
                         enemy.speedX *= -1;
                     }
-                }
-
-                // プレイヤーとの衝突判定
-                const closestX = Math.max(player.x, Math.min(player.x + player.size, enemy.x));
-                const closestY = Math.max(player.y, Math.min(player.y + player.size, enemy.y));
-                const dist = Math.hypot(enemy.x - closestX, enemy.y - closestY);
-
-                if (dist < enemy.radius) {
-                    deaths++;
-                    deathCountElement.textContent = deaths;
-                    resetGame();
-                }
-            });
-
-            // コイン獲得判定
-            coins.forEach(coin => {
-                if (!coin.collected) {
-                    const closestX = Math.max(player.x, Math.min(player.x + player.size, coin.x));
-                    const closestY = Math.max(player.y, Math.min(player.y + player.size, coin.y));
-                    if (Math.hypot(coin.x - closestX, coin.y - closestY) < coin.radius) {
-                        coin.collected = true;
-                        collectedCoins++;
-                        coinCountElement.textContent = collectedCoins;
+                } else if (enemy.type === "bullet") {
+                    enemy.x += enemy.vx;
+                    enemy.y += enemy.vy;
+                    // 画面外に出た生成弾は消去
+                    if (enemy.x < 0 || enemy.x > canvas.width || enemy.y < 0 || enemy.y > canvas.height) {
+                        enemies.splice(i, 1);
+                        continue;
                     }
                 }
-            });
 
-            // ゴール判定（全コイン取得が必要）
-            if (player.x + player.size > goalZone.x && player.y > goalZone.y && player.y < goalZone.y + goalZone.height) {
-                if (collectedCoins === coins.length) {
-                    alert(`クリア！\nミス回数: ${deaths} 回`);
+                // 当たり判定
+                const closestX = Math.max(player.x, Math.min(player.x + player.size, enemy.x));
+                const closestY = Math.max(player.y, Math.min(player.y + player.size, enemy.y));
+                if (Math.hypot(enemy.x - closestX, enemy.y - closestY) < enemy.radius) {
+                    deaths++;
+                    deathCountElement.textContent = deaths;
+                    loadStage(currentStage); // ミス時は現在のステージをやり直し
+                    return;
+                }
+            }
+
+            // ゴール判定
+            if (player.x + player.size > goalZone.x && 
+                player.x < goalZone.x + goalZone.width &&
+                player.y + player.size > goalZone.y && 
+                player.y < goalZone.y + goalZone.height) {
+                
+                if (currentStage < 3) {
+                    alert(`STAGE ${currentStage} クリア！ 次のステージへ進みます。`);
+                    loadStage(currentStage + 1);
+                } else {
+                    alert(`全ステージクリア！おめでとうございます！\n総ミス回数: ${deaths} 回`);
                     deaths = 0;
                     deathCountElement.textContent = deaths;
-                    resetGame();
+                    loadStage(1);
                 }
             }
         }
@@ -158,46 +229,45 @@
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // 市松模様の背景（原作風）
+            // 背景（格子模様）
             const tileSize = 40;
             for (let r = 0; r < canvas.height / tileSize; r++) {
                 for (let c = 0; c < canvas.width / tileSize; c++) {
-                    ctx.fillStyle = (r + c) % 2 === 0 ? "#333" : "#282828";
+                    ctx.fillStyle = (r + c) % 2 === 0 ? "#262626" : "#1e1e1e";
                     ctx.fillRect(c * tileSize, r * tileSize, tileSize, tileSize);
                 }
             }
 
-            // スタート＆ゴールゾーン
-            ctx.fillStyle = "#80ff80";
+            // スタート＆ゴールエリア
+            ctx.fillStyle = "#55ff55";
             ctx.fillRect(startZone.x, startZone.y, startZone.width, startZone.height);
             ctx.fillRect(goalZone.x, goalZone.y, goalZone.width, goalZone.height);
 
-            // コイン描画
-            coins.forEach(coin => {
-                if (!coin.collected) {
-                    ctx.beginPath();
-                    ctx.arc(coin.x, coin.y, coin.radius, 0, Math.PI * 2);
-                    ctx.fillStyle = "#ffe600";
-                    ctx.fill();
-                    ctx.strokeStyle = "#000";
-                    ctx.stroke();
-                }
-            });
+            // STAGE 3 中央砲台の演出描画
+            if (currentStage === 3) {
+                ctx.beginPath();
+                ctx.arc(350, 200, 20, 0, Math.PI * 2);
+                ctx.fillStyle = "#ff0055";
+                ctx.fill();
+                ctx.strokeStyle = "#fff";
+                ctx.stroke();
+            }
 
             // プレイヤー描画
-            ctx.fillStyle = "#ff2222";
+            ctx.fillStyle = "#ff3333";
             ctx.fillRect(player.x, player.y, player.size, player.size);
-            ctx.strokeStyle = "#000";
-            ctx.lineWidth = 2;
+            ctx.strokeStyle = "#fff";
+            ctx.lineWidth = 1;
             ctx.strokeRect(player.x, player.y, player.size, player.size);
 
-            // 障害物描画
+            // 障害物・弾幕描画
             enemies.forEach(enemy => {
                 ctx.beginPath();
                 ctx.arc(enemy.x, enemy.y, enemy.radius, 0, Math.PI * 2);
-                ctx.fillStyle = "#0066ff";
+                ctx.fillStyle = enemy.type === "bullet" ? "#00ffff" : "#0066ff";
                 ctx.fill();
-                ctx.strokeStyle = "#000";
+                ctx.strokeStyle = "#fff";
+                ctx.lineWidth = 1;
                 ctx.stroke();
             });
         }
@@ -208,6 +278,7 @@
             requestAnimationFrame(loop);
         }
 
+        loadStage(1);
         loop();
     </script>
 </body>
