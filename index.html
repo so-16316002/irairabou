@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>激難アクション - 1マスサイズ連動版</title>
+    <title>激難アクション - ボールサイズ完全連動版</title>
     <style>
         body {
             background-color: #111;
@@ -173,7 +173,7 @@
             player.y = (canvas.height / 2) - (player.size / 2);
 
             if (stage === 1) {
-                // STAGE 1: ボールサイズ固定 (標準: 半径8px)
+                // STAGE 1: ボールサイズ固定 (標準: 半径8px -> 直径16px)
                 const ballRadius = 8;
                 const ballGap = (currentDifficulty === "hard") ? 0 : 4;
                 const startX = 65;
@@ -193,17 +193,17 @@
                     count++;
                 }
             } else if (stage === 2) {
-                // STAGE 2: 指定サイズ適用 (簡単:13px, 普通:15px, 難しい:17px)
-                let stage2Radius = 7.5; // 普通: 直径15px (半径 7.5px)
-                if (currentDifficulty === "easy") stage2Radius = 6.5; // 簡単: 直径13px (半径 6.5px)
-                if (currentDifficulty === "hard") stage2Radius = 8.5; // 難しい: 直径17px (半径 8.5px)
+                // STAGE 2: 指定サイズ適用 (簡単:半径6.5px/直径13px, 普通:半径7.5px/直径15px, 難しい:半径8.5px/直径17px)
+                let stage2Radius = 7.5;
+                if (currentDifficulty === "easy") stage2Radius = 6.5;
+                if (currentDifficulty === "hard") stage2Radius = 8.5;
 
                 const centerX = 250, centerY = 125;
 
                 const layers = [
-                    { r: 110, count: 12, speed: 0.035 * speedMult },  // 1層目 (外側・時計回り)
-                    { r: 75,  count: 9,  speed: -0.05 * speedMult },  // 2層目 (中側・反時計回り)
-                    { r: 40,  count: 6,  speed: 0.07 * speedMult }    // 3層目 (内側・時計回り)
+                    { r: 110, count: 12, speed: 0.035 * speedMult },
+                    { r: 75,  count: 9,  speed: -0.05 * speedMult },
+                    { r: 40,  count: 6,  speed: 0.07 * speedMult }
                 ];
 
                 layers.forEach(layer => {
@@ -223,7 +223,7 @@
                     }
                 });
             } else if (stage === 3) {
-                // STAGE 3: ボールサイズ固定 (標準: 半径8px)
+                // STAGE 3: ボールサイズ固定 (標準: 半径8px -> 直径16px)
                 const ballRadius = 8;
                 for (let x = 70; x <= 430; x += 35) {
                     enemies.push({
@@ -335,8 +335,15 @@
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // 背景（「簡単」難易度の場合は単一のマス目の1つの幅（縦横）を13pxにする）
-            const tileSize = (currentDifficulty === "easy") ? 13 : 25;
+            // 背景描画処理の修正：
+            // 「簡単」の時は、画面上の青いボール（最初の大型敵など）の直径（半径×2）と完全一致させる
+            let tileSize = 25; // デフォルト（普通・難しい）
+            if (currentDifficulty === "easy") {
+                // 配列の先頭にある青いボールの直径を取得（なければ13px）
+                const sampleBall = enemies.find(e => e.type !== "bullet");
+                tileSize = sampleBall ? sampleBall.radius * 2 : 13;
+            }
+
             for (let r = 0; r < Math.ceil(canvas.height / tileSize); r++) {
                 for (let c = 0; c < Math.ceil(canvas.width / tileSize); c++) {
                     ctx.fillStyle = (r + c) % 2 === 0 ? "#262626" : "#1e1e1e";
