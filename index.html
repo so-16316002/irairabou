@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>激難アクション - 難しいSTAGE1横ボール追加版</title>
+    <title>激難アクション - STAGE2回転層調整版</title>
     <style>
         body {
             background-color: #111;
@@ -179,9 +179,8 @@
                     stage1SpeedMult = 1.5;
                 }
 
-                const baseSpeed = 4 * stage1SpeedMult; // 速度 6.0
+                const baseSpeed = 4 * stage1SpeedMult;
 
-                // 縦移動のボール
                 let count = 0;
                 for (let x = startX; x <= endX; x += step) {
                     enemies.push({
@@ -195,9 +194,7 @@
                     count++;
                 }
 
-                // 「難しい」モードの場合、一番上と一番下の列に横移動するボールを追加
                 if (currentDifficulty === "hard") {
-                    // 最上段（左から右へ移動）
                     enemies.push({
                         x: startX + ballRadius,
                         y: ballRadius,
@@ -209,7 +206,6 @@
                         maxX: endX + ballRadius
                     });
 
-                    // 最下段（右から左へ移動）
                     enemies.push({
                         x: endX + ballRadius,
                         y: canvas.height - ballRadius,
@@ -226,9 +222,9 @@
                 let stage2Radius = 8;
                 const centerX = 256, centerY = 128;
 
+                // 2番目の回転層（r: 80）を削除し、外側(112)と内側(48)の2層のみに変更
                 const layers = [
                     { r: 112, count: 6, speed: 0.035 * speedMult },
-                    { r: 80,  count: 4, speed: -0.05 * speedMult },
                     { r: 48,  count: 3, speed: 0.07 * speedMult }
                 ];
 
