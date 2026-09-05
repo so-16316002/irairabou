@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>激難アクション - 1マスサイズ完全一致修正版</title>
+    <title>激難アクション - STAGE2ボール数半減版</title>
     <style>
         body {
             background-color: #111;
@@ -90,10 +90,8 @@
         let currentDifficulty = "normal";
         let isGameRunning = false;
 
-        // 1マスの定義（簡単モード用）
-        const TILE_SIZE_EASY = 16; // 直径16px（1マス）
+        const TILE_SIZE_EASY = 16;
 
-        // プレイヤー
         const player = {
             x: 16,
             y: 120,
@@ -101,13 +99,11 @@
             speed: 3.5
         };
 
-        // 安全地帯・ゴール領域
         let startZone = { x: 0, y: 0, width: 64, height: 256 };
         let goalZone = { x: 448, y: 0, width: 64, height: 256 };
 
         let enemies = [];
 
-        // キー入力管理
         const keys = {};
         window.addEventListener("keydown", (e) => keys[e.key] = true);
         window.addEventListener("keyup", (e) => keys[e.key] = false);
@@ -119,7 +115,6 @@
         }
         window.addEventListener("blur", clearKeys);
 
-        // ゲームスタート処理
         function startGame(difficulty) {
             currentDifficulty = difficulty;
             let diffName = "普通";
@@ -138,7 +133,6 @@
             loop();
         }
 
-        // タイトルへ戻る処理
         function returnToTitle() {
             if (confirm("タイトル画面に戻りますか？\n（現在の進行状況はリセットされます）")) {
                 isGameRunning = false;
@@ -148,7 +142,6 @@
             }
         }
 
-        // ステージ設定
         function loadStage(stage) {
             clearKeys();
 
@@ -175,9 +168,8 @@
             player.y = (canvas.height / 2) - (player.size / 2);
 
             if (stage === 1) {
-                // STAGE 1: ボールの半径8px（＝直径16px）
                 const ballRadius = 8;
-                const ballSize = ballRadius * 2; // 16px
+                const ballSize = ballRadius * 2;
                 const startX = 80;
                 const endX = 432;
                 const step = (currentDifficulty === "easy") ? ballSize * 2 : ballSize + 8;
@@ -185,7 +177,7 @@
                 let count = 0;
                 for (let x = startX; x <= endX; x += step) {
                     enemies.push({
-                        x: x + ballRadius, // マス目の中心に配置
+                        x: x + ballRadius,
                         y: (count % 2 === 0) ? ballRadius : canvas.height - ballRadius,
                         radius: ballRadius,
                         speedX: 0,
@@ -196,14 +188,13 @@
                 }
             } else if (stage === 2) {
                 let stage2Radius = 8;
-                if (currentDifficulty === "easy") stage2Radius = 8; // 半径8px（直径16px）
-
                 const centerX = 256, centerY = 128;
 
+                // 各層のボール数を半分に調整（12➔6, 9➔4, 6➔3）
                 const layers = [
-                    { r: 112, count: 12, speed: 0.035 * speedMult },
-                    { r: 80,  count: 9,  speed: -0.05 * speedMult },
-                    { r: 48,  count: 6,  speed: 0.07 * speedMult }
+                    { r: 112, count: 6, speed: 0.035 * speedMult },
+                    { r: 80,  count: 4, speed: -0.05 * speedMult },
+                    { r: 48,  count: 3, speed: 0.07 * speedMult }
                 ];
 
                 layers.forEach(layer => {
@@ -242,13 +233,11 @@
 
             frameCount++;
 
-            // 移動
             if ((keys["ArrowUp"] || keys["w"]) && player.y > 0) player.y -= player.speed;
             if ((keys["ArrowDown"] || keys["s"]) && player.y + player.size < canvas.height) player.y += player.speed;
             if ((keys["ArrowLeft"] || keys["a"]) && player.x > 0) player.x -= player.speed;
             if ((keys["ArrowRight"] || keys["d"]) && player.x + player.size < canvas.width) player.x += player.speed;
 
-            // STAGE 3 動的弾幕
             if (currentStage === 3) {
                 if (frameCount % 25 === 0) {
                     const bulletCount = 10;
@@ -278,7 +267,6 @@
                 }
             }
 
-            // 障害物アップデート
             for (let i = enemies.length - 1; i >= 0; i--) {
                 let enemy = enemies[i];
 
@@ -300,7 +288,6 @@
                     }
                 }
 
-                // 衝突判定
                 const closestX = Math.max(player.x, Math.min(player.x + player.size, enemy.x));
                 const closestY = Math.max(player.y, Math.min(player.y + player.size, enemy.y));
                 if (Math.hypot(enemy.x - closestX, enemy.y - closestY) < enemy.radius) {
@@ -311,7 +298,6 @@
                 }
             }
 
-            // ゴール判定
             if (player.x + player.size > goalZone.x && 
                 player.x < goalZone.x + goalZone.width &&
                 player.y + player.size > goalZone.y && 
@@ -334,7 +320,6 @@
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // 背景描画（簡単モード時は16pxで1マス＝青ボールの直径16pxと完全一致）
             const tileSize = (currentDifficulty === "easy") ? TILE_SIZE_EASY : 25; 
 
             for (let r = 0; r < Math.ceil(canvas.height / tileSize); r++) {
@@ -344,12 +329,10 @@
                 }
             }
 
-            // スタート＆ゴールエリア
             ctx.fillStyle = "#55ff55";
             ctx.fillRect(startZone.x, startZone.y, startZone.width, startZone.height);
             ctx.fillRect(goalZone.x, goalZone.y, goalZone.width, goalZone.height);
 
-            // STAGE 3 中央砲台
             if (currentStage === 3) {
                 ctx.beginPath();
                 ctx.arc(256, 128, 16, 0, Math.PI * 2);
@@ -359,14 +342,12 @@
                 ctx.stroke();
             }
 
-            // プレイヤー
             ctx.fillStyle = "#ff3333";
             ctx.fillRect(player.x, player.y, player.size, player.size);
             ctx.strokeStyle = "#fff";
             ctx.lineWidth = 1;
             ctx.strokeRect(player.x, player.y, player.size, player.size);
 
-            // 障害物
             enemies.forEach(enemy => {
                 ctx.beginPath();
                 ctx.arc(enemy.x, enemy.y, enemy.radius, 0, Math.PI * 2);
