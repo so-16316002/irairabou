@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>激難アクション - ステージ1速度変更版</title>
+    <title>激難アクション - 難しいSTAGE1横ボール追加版</title>
     <style>
         body {
             background-color: #111;
@@ -174,12 +174,14 @@
                 const endX = 432;
                 const step = (currentDifficulty === "easy") ? ballSize * 2 : ballSize + 8;
 
-                // 「普通」と「難しい」のステージ1ボール速度を同一（6 * 1.5 = 9.0）に統一
                 let stage1SpeedMult = 1.0;
                 if (currentDifficulty === "normal" || currentDifficulty === "hard") {
                     stage1SpeedMult = 1.5;
                 }
 
+                const baseSpeed = 4 * stage1SpeedMult; // 速度 6.0
+
+                // 縦移動のボール
                 let count = 0;
                 for (let x = startX; x <= endX; x += step) {
                     enemies.push({
@@ -187,11 +189,39 @@
                         y: (count % 2 === 0) ? ballRadius : canvas.height - ballRadius,
                         radius: ballRadius,
                         speedX: 0,
-                        speedY: ((count % 2 === 0) ? 4 : -4) * stage1SpeedMult,
+                        speedY: (count % 2 === 0) ? baseSpeed : -baseSpeed,
                         type: "bounce"
                     });
                     count++;
                 }
+
+                // 「難しい」モードの場合、一番上と一番下の列に横移動するボールを追加
+                if (currentDifficulty === "hard") {
+                    // 最上段（左から右へ移動）
+                    enemies.push({
+                        x: startX + ballRadius,
+                        y: ballRadius,
+                        radius: ballRadius,
+                        speedX: baseSpeed,
+                        speedY: 0,
+                        type: "bounceX",
+                        minX: startX + ballRadius,
+                        maxX: endX + ballRadius
+                    });
+
+                    // 最下段（右から左へ移動）
+                    enemies.push({
+                        x: endX + ballRadius,
+                        y: canvas.height - ballRadius,
+                        radius: ballRadius,
+                        speedX: -baseSpeed,
+                        speedY: 0,
+                        type: "bounceX",
+                        minX: startX + ballRadius,
+                        maxX: endX + ballRadius
+                    });
+                }
+
             } else if (stage === 2) {
                 let stage2Radius = 8;
                 const centerX = 256, centerY = 128;
@@ -279,6 +309,11 @@
                     enemy.y += enemy.speedY;
                     if (enemy.y - enemy.radius <= 0 || enemy.y + enemy.radius >= canvas.height) {
                         enemy.speedY *= -1;
+                    }
+                } else if (enemy.type === "bounceX") {
+                    enemy.x += enemy.speedX;
+                    if (enemy.x <= enemy.minX || enemy.x >= enemy.maxX) {
+                        enemy.speedX *= -1;
                     }
                 } else if (enemy.type === "rotate") {
                     enemy.angle += enemy.speedAngle;
